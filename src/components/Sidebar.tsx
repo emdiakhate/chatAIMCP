@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, MessageSquare, Trash2, Settings, LogOut } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Settings, LogOut, Boxes } from 'lucide-react';
 import { Conversation } from '../pages/ChatPage';
 
 interface SidebarProps {
@@ -9,6 +9,7 @@ interface SidebarProps {
   onNewConversation: () => void;
   onDeleteConversation: (id: number) => void;
   onShowIntegrations: () => void;
+  onShowMCPPanel?: () => void;
   onLogout: () => void;
 }
 
@@ -19,6 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewConversation,
   onDeleteConversation,
   onShowIntegrations,
+  onShowMCPPanel,
   onLogout,
 }) => {
   return (
@@ -69,6 +71,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="border-t border-gray-200 p-4 space-y-2">
+        {onShowMCPPanel && (
+          <button
+            onClick={onShowMCPPanel}
+            className="w-full flex items-center justify-center px-4 py-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition font-medium"
+          >
+            <Boxes className="w-4 h-4 mr-2" />
+            My Tools
+          </button>
+        )}
         <button
           onClick={onShowIntegrations}
           className="w-full flex items-center justify-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"

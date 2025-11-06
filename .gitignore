@@ -21,3 +21,9 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Database files
+backend/database/
+*.db
+*.sqlite
+*.sqlite3
