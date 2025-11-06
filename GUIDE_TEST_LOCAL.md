@@ -5,7 +5,13 @@ Les serveurs tournent dans l'environnement distant de Claude Code, donc vous ne 
 
 ## Solution : Lancer Localement avec SQLite
 
-### Option 1 : Utiliser l'Ancien Serveur (SQLite - Plus Simple)
+### 🎉 Option 1 : Serveur SQLite avec MCP (RECOMMANDÉ !)
+
+**NOUVEAU ! Toutes les fonctionnalités MCP sont maintenant disponibles avec SQLite !**
+
+Vous pouvez maintenant tester toutes les fonctionnalités MCP (marketplace, connexions, tool calling) **sans installer PostgreSQL**.
+
+#### Étapes :
 
 1. **Ouvrez le projet dans Cursor**
 
@@ -48,13 +54,23 @@ MCP_SERVERS_PATH=./mcp-servers
 EOF
 ```
 
-5. **Lancez le serveur backend (ancienne version SQLite)**
+5. **Lancez le serveur backend avec MCP (SQLite)**
 ```bash
 # Dans /backend
-node src/server.js
+node src/server-sqlite-mcp.js
 ```
 
-> **Note** : Le fichier `server.js` utilise SQLite et ne nécessite pas PostgreSQL
+Vous devriez voir :
+```
+🚀 ChatAI MCP Server v2.0.0 (SQLite)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📡 Server:          http://localhost:3001
+✨ MCP Features (SQLite):
+   • Tool calling via Model Context Protocol
+   • SQLite database (no PostgreSQL needed!)
+```
+
+> **🎉 Important !** Le fichier `server-sqlite-mcp.js` utilise SQLite avec **toutes les fonctionnalités MCP** - pas besoin de PostgreSQL !
 
 6. **Dans un nouveau terminal, lancez le frontend**
 ```bash
@@ -67,9 +83,35 @@ npm run dev
 http://localhost:5173
 ```
 
-### Option 2 : Installer PostgreSQL Localement (Plus Complet)
+#### Fonctionnalités Disponibles :
 
-Si vous voulez tester la version complète avec MCP :
+✅ **Marketplace MCP** - Parcourir et connecter des outils
+✅ **5 Serveurs MCP pré-configurés** :
+   - 📁 Local Files (filesystem)
+   - 📧 Gmail
+   - ☁️ Google Drive
+   - 🐙 GitHub
+   - 🧠 Memory
+
+✅ **Tool Calling** - Le modèle utilise automatiquement les outils connectés
+✅ **Gestion des Connexions** - Connect/disconnect des serveurs MCP
+✅ **Statistiques** - Suivi des appels d'outils
+✅ **OAuth Support** - Pour Gmail, Drive, GitHub
+
+### Option 2 : Ancien Serveur SQLite (Sans MCP)
+
+Si vous voulez juste tester le chat basique **sans** les fonctionnalités MCP :
+
+```bash
+# Dans /backend
+node src/server.js
+```
+
+> **Note** : Le fichier `server.js` utilise SQLite mais n'a **pas** les fonctionnalités MCP (marketplace, tool calling, etc.)
+
+### Option 3 : Installer PostgreSQL Localement
+
+Si vous préférez PostgreSQL ou si vous rencontrez des problèmes avec SQLite :
 
 #### Windows
 
@@ -98,7 +140,7 @@ sudo apt install postgresql postgresql-contrib
 sudo -u postgres createdb chataimcp
 ```
 
-Ensuite, configurez `.env` comme dans l'Option 1 et lancez :
+Ensuite, configurez `.env` et lancez :
 
 ```bash
 # Backend
@@ -109,7 +151,7 @@ node src/server-mcp.js
 npm run dev
 ```
 
-### Option 3 : Utiliser Docker (Recommandé pour Développement)
+### Option 4 : Utiliser Docker (Recommandé pour Développement)
 
 Créez un fichier `docker-compose.yml` à la racine :
 
@@ -162,15 +204,36 @@ Puis lancez :
 docker-compose up
 ```
 
+## Comparaison des Options
+
+| Fonctionnalité | server.js (SQLite) | server-sqlite-mcp.js (SQLite) | server-mcp.js (PostgreSQL) |
+|---|---|---|---|
+| Base de données | SQLite | SQLite | PostgreSQL |
+| Installation requise | Aucune | Aucune | PostgreSQL |
+| Espace disque | ~10 Mo | ~20 Mo | ~100 Mo+ |
+| **MCP Marketplace** | ❌ Non | ✅ Oui | ✅ Oui |
+| **Tool Calling** | ❌ Non | ✅ Oui | ✅ Oui |
+| **Connexions MCP** | ❌ Non | ✅ Oui | ✅ Oui |
+| Chat de base | ✅ Oui | ✅ Oui | ✅ Oui |
+| OAuth Google | ✅ Oui | ✅ Oui | ✅ Oui |
+| Performance | Bonne | Bonne | Meilleure |
+| Multi-tenant | ❌ Non | ✅ Oui | ✅ Oui |
+
 ## Vérification que Tout Fonctionne
 
 1. **Backend** : Ouvrez http://localhost:3001/health
-   - Vous devriez voir : `{"status":"ok",...}`
+   - Vous devriez voir : `{"status":"ok", "version":"2.0.0-mcp-sqlite", "database":"SQLite"}`
 
 2. **Frontend** : Ouvrez http://localhost:5173
    - Vous devriez voir la page de connexion/inscription
 
 3. **Créez un compte** et testez le chat
+
+4. **Testez MCP** :
+   - Cliquez sur "My Tools" dans la sidebar
+   - Vous devriez voir les 5 serveurs MCP disponibles
+   - Connectez "Local Files" (filesystem)
+   - Posez une question comme "Liste les fichiers dans /tmp"
 
 ## Dépannage
 
@@ -199,16 +262,46 @@ lsof -ti:3001 | xargs kill -9
 ### Base de données non trouvée (SQLite)
 ```bash
 # SQLite crée automatiquement le fichier
-# Vérifiez que /backend/database.sqlite existe
-ls -la backend/database.sqlite
+# Vérifiez que /backend/database/chatai-mcp.db existe
+ls -la backend/database/
+```
+
+### Serveurs MCP ne se chargent pas
+```bash
+# Vérifiez les logs du backend
+# Vous devriez voir : "✅ 5 serveurs MCP créés avec succès"
+
+# Ouvrez le navigateur et vérifiez la console (F12)
+# Cherchez les logs [MCPMarketplace]
 ```
 
 ## Recommandation
 
-Pour un test rapide, utilisez **Option 1 (SQLite)** car :
+Pour un test rapide et complet, utilisez **Option 1 (server-sqlite-mcp.js)** car :
 - ✅ Pas besoin d'installer PostgreSQL
 - ✅ Prend moins d'espace disque
 - ✅ Démarre instantanément
-- ❌ Mais vous n'aurez pas les fonctionnalités MCP complètes
+- ✅ **TOUTES les fonctionnalités MCP sont disponibles !**
+- ✅ Marketplace, connexions, tool calling, tout fonctionne !
 
-Pour le développement complet avec MCP, utilisez **Option 3 (Docker)**.
+C'est la solution parfaite pour tester en local avec Cursor sans complications.
+
+## Différences Techniques
+
+### SQLite vs PostgreSQL pour MCP
+
+Les fichiers créés pour SQLite :
+- `/backend/src/config/database-sqlite-mcp.js` - Configuration SQLite avec tables MCP
+- `/backend/src/routes/mcp-servers-sqlite.js` - Routes MCP adaptées pour SQLite
+- `/backend/src/routes/mcp-connections-sqlite.js` - Gestion des connexions MCP (SQLite)
+- `/backend/src/routes/chat-mcp-sqlite.js` - Chat avec tool calling (SQLite)
+- `/backend/src/server-sqlite-mcp.js` - Serveur principal SQLite + MCP
+
+Principales adaptations :
+- Paramètres `$1, $2` → `?` (SQLite bind params)
+- `JSONB` → `TEXT` + JSON.parse/stringify
+- `SERIAL` → `INTEGER PRIMARY KEY AUTOINCREMENT`
+- `ILIKE` → `LIKE` (SQLite n'a pas ILIKE)
+- Pas de transactions complexes (simplifiées pour SQLite)
+
+Mais toutes les fonctionnalités sont présentes ! 🎉

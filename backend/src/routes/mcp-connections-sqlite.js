@@ -1,0 +1,484 @@
+import express from 'express';
+import db, { query } from '../config/database-sqlite-mcp.js';
+import mcpClientManager from '../mcp/client-manager.js';
+import toolExecutor from '../mcp/tool-executor.js';
+import { authenticateToken } from '../middleware/auth.js';
+
+const router = express.Router();
+
+/**
+ * Helper pour parser les champs JSON
+ */
+const parseJsonFields = (obj, fields) => {
+  const result = { ...obj };
+  fields.forEach(field => {
+    if (result[field]) {
+      try {
+        result[field] = JSON.parse(result[field]);
+      } catch (e) {
+        result[field] = result[field];
+      }
+    }
+  });
+  return result;
+};
+
+/**
+ * GET /api/mcp/connections
+ * Liste toutes les connexions MCP de l'utilisateur
+ */
+router.get('/connections', authenticateToken, async (req, res) => {
+  try {
+    const result = query(`
+      SELECT
+        c.id,
+        c.user_id,
+        c.server_id,
+        c.status,
+        c.last_connected,
+        c.error_message,
+        c.created_at,
+        c.updated_at,
+        s.server_key,
+        s.name as server_name,
+        s.description as server_description,
+        s.icon,
+        s.category,
+        s.requires_auth,
+        s.auth_type,
+        s.capabilities
+      FROM user_mcp_connections c
+      JOIN mcp_servers s ON c.server_id = s.id
+      WHERE c.user_id = ?
+      ORDER BY c.created_at DESC
+    `, [req.user.userId]);
+
+    const connections = result.rows.map(conn => ({
+      ...conn,
+      capabilities: conn.capabilities ? JSON.parse(conn.capabilities) : []
+    }));
+
+    res.json({
+      success: true,
+      connections,
+      total: connections.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching MCP connections:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch MCP connections'
+    });
+  }
+});
+
+/**
+ * POST /api/mcp/connections
+ * Crée une nouvelle connexion MCP
+ */
+router.post('/connections', authenticateToken, async (req, res) => {
+  try {
+    const { server_id, credentials, config_overrides } = req.body;
+
+    if (!server_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'server_id is required'
+      });
+    }
+
+    // Récupérer les infos du serveur
+    const serverResult = query(
+      'SELECT * FROM mcp_servers WHERE id = ?',
+      [server_id]
+    );
+
+    if (serverResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Server not found'
+      });
+    }
+
+    const server = parseJsonFields(serverResult.rows[0], ['args', 'env', 'capabilities', 'scopes']);
+
+    // Vérifier si une connexion existe déjà
+    const existingResult = query(
+      'SELECT id FROM user_mcp_connections WHERE user_id = ? AND server_id = ?',
+      [req.user.userId, server_id]
+    );
+
+    let connection;
+
+    if (existingResult.rows.length > 0) {
+      // Mettre à jour la connexion existante
+      query(`
+        UPDATE user_mcp_connections
+        SET
+          status = 'active',
+          credentials = ?,
+          config_overrides = ?,
+          last_connected = CURRENT_TIMESTAMP,
+          error_message = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ? AND server_id = ?
+      `, [
+        JSON.stringify(credentials || {}),
+        JSON.stringify(config_overrides || {}),
+        req.user.userId,
+        server_id
+      ]);
+
+      const connResult = query('SELECT * FROM user_mcp_connections WHERE user_id = ? AND server_id = ?', [req.user.userId, server_id]);
+      connection = connResult.rows[0];
+    } else {
+      // Créer une nouvelle connexion
+      const insertResult = query(`
+        INSERT INTO user_mcp_connections (
+          user_id, server_id, status, credentials, config_overrides, last_connected
+        ) VALUES (?, ?, 'active', ?, ?, CURRENT_TIMESTAMP)
+      `, [
+        req.user.userId,
+        server_id,
+        JSON.stringify(credentials || {}),
+        JSON.stringify(config_overrides || {})
+      ]);
+
+      const connResult = query('SELECT * FROM user_mcp_connections WHERE id = ?', [insertResult.lastInsertRowid]);
+      connection = connResult.rows[0];
+    }
+
+    // Préparer la config pour le client MCP
+    const serverConfig = {
+      id: server.id,
+      name: server.name,
+      transport_type: server.transport_type,
+      command: server.command,
+      args: server.args || [],
+      env: {
+        ...(server.env || {}),
+        ...(credentials || {})
+      },
+      url: server.url
+    };
+
+    // Tester la connexion
+    try {
+      await mcpClientManager.createClient(
+        req.user.userId,
+        server_id,
+        serverConfig
+      );
+
+      // Mettre à jour le statut de connexion
+      query(
+        'UPDATE user_mcp_connections SET status = ?, last_connected = CURRENT_TIMESTAMP WHERE id = ?',
+        ['active', connection.id]
+      );
+
+    } catch (connError) {
+      console.error('Error connecting to MCP server:', connError);
+
+      query(
+        'UPDATE user_mcp_connections SET status = ?, error_message = ? WHERE id = ?',
+        ['error', connError.message, connection.id]
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to connect to MCP server',
+        details: connError.message
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      connection: {
+        ...connection,
+        server_name: server.name,
+        server_key: server.server_key,
+        icon: server.icon
+      }
+    });
+
+  } catch (error) {
+    console.error('Error creating MCP connection:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MCP connection'
+    });
+  }
+});
+
+/**
+ * DELETE /api/mcp/connections/:id
+ * Supprime une connexion MCP
+ */
+router.delete('/connections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Vérifier que la connexion appartient à l'utilisateur
+    const connResult = query(
+      'SELECT * FROM user_mcp_connections WHERE id = ? AND user_id = ?',
+      [id, req.user.userId]
+    );
+
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Connection not found'
+      });
+    }
+
+    const connection = connResult.rows[0];
+
+    // Déconnecter le client MCP
+    try {
+      await mcpClientManager.disconnectClient(req.user.userId, connection.server_id);
+    } catch (e) {
+      console.error('Error disconnecting MCP client:', e);
+    }
+
+    // Supprimer la connexion
+    query('DELETE FROM user_mcp_connections WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: 'Connection deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting MCP connection:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete MCP connection'
+    });
+  }
+});
+
+/**
+ * POST /api/mcp/connections/:id/test
+ * Teste une connexion MCP
+ */
+router.post('/connections/:id/test', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Récupérer la connexion
+    const connResult = query(`
+      SELECT c.*, s.*
+      FROM user_mcp_connections c
+      JOIN mcp_servers s ON c.server_id = s.id
+      WHERE c.id = ? AND c.user_id = ?
+    `, [id, req.user.userId]);
+
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Connection not found'
+      });
+    }
+
+    const connection = parseJsonFields(connResult.rows[0], ['args', 'env', 'capabilities', 'credentials', 'config_overrides']);
+
+    // Config du serveur
+    const serverConfig = {
+      id: connection.server_id,
+      name: connection.name,
+      transport_type: connection.transport_type,
+      command: connection.command,
+      args: connection.args || [],
+      env: {
+        ...(connection.env || {}),
+        ...(connection.credentials || {})
+      },
+      url: connection.url
+    };
+
+    // Tester en listant les outils disponibles
+    const tools = await mcpClientManager.listTools(
+      req.user.userId,
+      connection.server_id,
+      serverConfig
+    );
+
+    res.json({
+      success: true,
+      tools,
+      message: 'Connection test successful'
+    });
+
+  } catch (error) {
+    console.error('Error testing MCP connection:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Connection test failed',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/mcp/connections/:id/tools
+ * Liste les outils disponibles pour une connexion
+ */
+router.get('/connections/:id/tools', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const connResult = query(`
+      SELECT c.*, s.*
+      FROM user_mcp_connections c
+      JOIN mcp_servers s ON c.server_id = s.id
+      WHERE c.id = ? AND c.user_id = ?
+    `, [id, req.user.userId]);
+
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Connection not found'
+      });
+    }
+
+    const connection = parseJsonFields(connResult.rows[0], ['args', 'env', 'capabilities', 'credentials']);
+
+    const serverConfig = {
+      id: connection.server_id,
+      name: connection.name,
+      transport_type: connection.transport_type,
+      command: connection.command,
+      args: connection.args || [],
+      env: {
+        ...(connection.env || {}),
+        ...(connection.credentials || {})
+      },
+      url: connection.url
+    };
+
+    const tools = await mcpClientManager.listTools(
+      req.user.userId,
+      connection.server_id,
+      serverConfig
+    );
+
+    res.json({
+      success: true,
+      tools
+    });
+
+  } catch (error) {
+    console.error('Error fetching connection tools:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch tools'
+    });
+  }
+});
+
+/**
+ * POST /api/mcp/tools/execute
+ * Exécute un outil MCP
+ */
+router.post('/tools/execute', authenticateToken, async (req, res) => {
+  try {
+    const { connection_id, tool_name, args, conversation_id } = req.body;
+
+    if (!connection_id || !tool_name) {
+      return res.status(400).json({
+        success: false,
+        error: 'connection_id and tool_name are required'
+      });
+    }
+
+    // Récupérer la connexion
+    const connResult = query(`
+      SELECT c.*, s.*
+      FROM user_mcp_connections c
+      JOIN mcp_servers s ON c.server_id = s.id
+      WHERE c.id = ? AND c.user_id = ?
+    `, [connection_id, req.user.userId]);
+
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Connection not found'
+      });
+    }
+
+    const connection = parseJsonFields(connResult.rows[0], ['args', 'env', 'credentials']);
+
+    const serverConfig = {
+      id: connection.server_id,
+      name: connection.name,
+      transport_type: connection.transport_type,
+      command: connection.command,
+      args: connection.args || [],
+      env: {
+        ...(connection.env || {}),
+        ...(connection.credentials || {})
+      },
+      url: connection.url
+    };
+
+    // Exécuter l'outil
+    const result = await toolExecutor.executeTool(
+      req.user.userId,
+      connection.server_id,
+      serverConfig,
+      tool_name,
+      args || {},
+      conversation_id
+    );
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error executing tool:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to execute tool',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/mcp/stats
+ * Statistiques sur les appels d'outils
+ */
+router.get('/stats', authenticateToken, async (req, res) => {
+  try {
+    const result = query(`
+      SELECT
+        COUNT(*) as total_calls,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_calls,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed_calls,
+        AVG(execution_time) as avg_execution_time
+      FROM mcp_tool_calls
+      WHERE user_id = ?
+    `, [req.user.userId]);
+
+    const stats = result.rows[0];
+
+    res.json({
+      success: true,
+      stats: {
+        totalCalls: parseInt(stats.total_calls) || 0,
+        successfulCalls: parseInt(stats.successful_calls) || 0,
+        failedCalls: parseInt(stats.failed_calls) || 0,
+        avgExecutionTime: parseFloat(stats.avg_execution_time) || 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch stats'
+    });
+  }
+});
+
+export default router;

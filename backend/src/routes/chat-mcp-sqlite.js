@@ -1,0 +1,408 @@
+import express from 'express';
+import db, { query } from '../config/database-sqlite-mcp.js';
+import { authenticateToken } from '../middleware/auth.js';
+import toolExecutor from '../mcp/tool-executor.js';
+import mcpClientManager from '../mcp/client-manager.js';
+import {
+  chatCompletion,
+  convertGeminiHistoryToOpenAI,
+  extractTextFromResponse,
+  extractToolCallsFromResponse,
+  prepareToolResponseMessages
+} from '../utils/openrouter.js';
+
+const router = express.Router();
+
+/**
+ * Helper pour parser JSON
+ */
+const parseJson = (str) => {
+  try {
+    return str ? JSON.parse(str) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
+ * POST /api/chat
+ * Endpoint de chat avec support MCP complet
+ */
+router.post('/chat', authenticateToken, async (req, res) => {
+  try {
+    const { conversationId, message } = req.body;
+
+    if (!conversationId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Conversation ID and message are required'
+      });
+    }
+
+    // Vérifier que la conversation existe et appartient à l'utilisateur
+    const conversationResult = query(
+      'SELECT * FROM conversations WHERE id = ? AND user_id = ?',
+      [conversationId, req.user.userId]
+    );
+
+    if (conversationResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Conversation not found'
+      });
+    }
+
+    // Enregistrer le message utilisateur
+    query(
+      'INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)',
+      [conversationId, 'user', message]
+    );
+
+    // Récupérer les connexions MCP actives de l'utilisateur
+    const connectionsResult = query(`
+      SELECT
+        c.*,
+        s.*
+      FROM user_mcp_connections c
+      JOIN mcp_servers s ON c.server_id = s.id
+      WHERE c.user_id = ? AND c.status = 'active'
+    `, [req.user.userId]);
+
+    const activeConnections = connectionsResult.rows;
+
+    // Récupérer tous les outils disponibles
+    let availableTools = [];
+    const toolsMetadata = [];
+
+    for (const connection of activeConnections) {
+      try {
+        const serverConfig = {
+          id: connection.server_id,
+          name: connection.name,
+          transport_type: connection.transport_type,
+          command: connection.command,
+          args: parseJson(connection.args) || [],
+          env: {
+            ...(parseJson(connection.env) || {}),
+            ...(parseJson(connection.credentials) || {})
+          },
+          url: connection.url
+        };
+
+        const tools = await mcpClientManager.listTools(
+          req.user.userId,
+          connection.server_id,
+          serverConfig
+        );
+
+        // Formater les outils pour OpenAI/OpenRouter
+        const formattedTools = tools.map(tool => ({
+          type: 'function',
+          function: {
+            name: `${connection.server_key}__${tool.name}`,
+            description: `[${connection.name}] ${tool.description}`,
+            parameters: tool.inputSchema || {}
+          }
+        }));
+
+        availableTools.push(...formattedTools);
+
+        // Garder les métadonnées pour l'exécution
+        tools.forEach(tool => {
+          toolsMetadata.push({
+            compositeName: `${connection.server_key}__${tool.name}`,
+            originalName: tool.name,
+            serverId: connection.server_id,
+            serverKey: connection.server_key,
+            serverConfig
+          });
+        });
+
+      } catch (error) {
+        console.error(`Erreur lors de la récupération des outils pour ${connection.name}:`, error);
+      }
+    }
+
+    // Vérifier la clé API OpenRouter
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error('OPENROUTER_API_KEY not configured');
+    }
+
+    // Récupérer l'historique de la conversation
+    const messagesResult = query(
+      'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+      [conversationId]
+    );
+
+    // System prompt pour guider le modèle
+    const systemPrompt = {
+      role: 'system',
+      content: `You are an intelligent AI assistant with access to powerful tools via the Model Context Protocol (MCP).
+
+Available tools: ${availableTools.length > 0 ? availableTools.map(t => t.function.name).join(', ') : 'none'}
+
+Guidelines:
+- ACTIVELY use the available tools when they can help answer the user's question
+- Always prefer using tools over making assumptions
+- For filesystem operations, use the filesystem tools
+- For email-related queries, use the gmail tools
+- For document storage, use the gdrive tools
+- For code-related tasks, use the github tools
+- Explain what you're doing when using tools
+- If a tool call fails, explain the error clearly and suggest alternatives
+- Provide clear, concise, and helpful responses
+- When multiple tools are needed, call them in sequence to build up information
+
+Remember: You are empowered to take action using these tools. Don't just describe what could be done - actually use the tools to accomplish tasks for the user.`
+    };
+
+    // Convertir l'historique au format OpenAI (exclure le dernier message déjà ajouté)
+    const chatHistory = convertGeminiHistoryToOpenAI(
+      messagesResult.rows
+        .slice(0, -1)
+        .map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        }))
+    );
+
+    // Ajouter le system prompt et le nouveau message
+    let messages = [
+      systemPrompt,
+      ...chatHistory,
+      {
+        role: 'user',
+        content: message
+      }
+    ];
+
+    let toolCalls = [];
+    let iterations = 0;
+    const MAX_ITERATIONS = 5;
+    let finalResponse = '';
+
+    // Boucle de tool calling
+    while (iterations < MAX_ITERATIONS) {
+      iterations++;
+
+      console.log(`[Chat MCP] Itération ${iterations}`);
+
+      // Appeler OpenRouter
+      const result = await chatCompletion(
+        process.env.OPENROUTER_API_KEY,
+        messages,
+        {
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+          temperature: 0.7,
+          max_tokens: 4096,
+          tools: availableTools.length > 0 ? availableTools : undefined,
+          tool_choice: availableTools.length > 0 ? 'auto' : undefined
+        }
+      );
+
+      // Vérifier s'il y a des tool calls
+      const extractedToolCalls = extractToolCallsFromResponse(result);
+
+      if (!extractedToolCalls || extractedToolCalls.length === 0) {
+        // Pas de tool calls, extraire la réponse finale
+        finalResponse = extractTextFromResponse(result);
+        console.log('[Chat MCP] Réponse finale (sans outils)');
+        break;
+      }
+
+      console.log(`[Chat MCP] ${extractedToolCalls.length} outil(s) à appeler`);
+
+      // Ajouter le message de l'assistant avec tool calls
+      const assistantMessage = result.choices[0].message;
+      messages.push(assistantMessage);
+
+      // Exécuter les tool calls
+      const toolResults = [];
+
+      for (const toolCall of extractedToolCalls) {
+        const toolMeta = toolsMetadata.find(t => t.compositeName === toolCall.name);
+
+        if (!toolMeta) {
+          console.error(`[Chat MCP] Outil non trouvé: ${toolCall.name}`);
+          toolResults.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            content: JSON.stringify({
+              error: 'Tool not found'
+            })
+          });
+          continue;
+        }
+
+        console.log(`[Chat MCP] Exécution: ${toolCall.name}`);
+
+        try {
+          const execResult = await toolExecutor.executeTool(
+            req.user.userId,
+            toolMeta.serverId,
+            toolMeta.serverConfig,
+            toolMeta.originalName,
+            toolCall.args,
+            conversationId
+          );
+
+          toolCalls.push({
+            tool: toolMeta.originalName,
+            server: toolMeta.serverKey,
+            args: toolCall.args,
+            result: execResult.result,
+            success: execResult.success,
+            executionTime: execResult.executionTime
+          });
+
+          toolResults.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            content: JSON.stringify(execResult.result)
+          });
+
+        } catch (error) {
+          console.error(`[Chat MCP] Erreur d'exécution:`, error);
+
+          toolCalls.push({
+            tool: toolMeta.originalName,
+            server: toolMeta.serverKey,
+            args: toolCall.args,
+            error: error.message,
+            success: false
+          });
+
+          toolResults.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            content: JSON.stringify({
+              error: error.message
+            })
+          });
+        }
+      }
+
+      // Ajouter les résultats des outils aux messages
+      messages.push(...toolResults);
+    }
+
+    // Si on a atteint la limite d'itérations, faire un dernier appel pour la réponse
+    if (iterations >= MAX_ITERATIONS && !finalResponse) {
+      console.log('[Chat MCP] Limite d\'itérations atteinte, appel final');
+
+      const finalResult = await chatCompletion(
+        process.env.OPENROUTER_API_KEY,
+        messages,
+        {
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+          temperature: 0.7,
+          max_tokens: 4096
+        }
+      );
+
+      finalResponse = extractTextFromResponse(finalResult);
+    }
+
+    // Enregistrer la réponse de l'assistant
+    query(
+      'INSERT INTO messages (conversation_id, role, content, sources) VALUES (?, ?, ?, ?)',
+      [
+        conversationId,
+        'assistant',
+        finalResponse,
+        toolCalls.length > 0 ? JSON.stringify(toolCalls) : null
+      ]
+    );
+
+    // Mettre à jour le timestamp de la conversation
+    query(
+      'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [conversationId]
+    );
+
+    res.json({
+      success: true,
+      response: finalResponse,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      iterations
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur dans /api/chat:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process chat',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/chat/available-tools
+ * Liste tous les outils disponibles pour l'utilisateur
+ */
+router.get('/chat/available-tools', authenticateToken, async (req, res) => {
+  try {
+    const connectionsResult = query(`
+      SELECT
+        c.*,
+        s.*
+      FROM user_mcp_connections c
+      JOIN mcp_servers s ON c.server_id = s.id
+      WHERE c.user_id = ? AND c.status = 'active'
+    `, [req.user.userId]);
+
+    const activeConnections = connectionsResult.rows;
+    const allTools = [];
+
+    for (const connection of activeConnections) {
+      try {
+        const serverConfig = {
+          id: connection.server_id,
+          name: connection.name,
+          transport_type: connection.transport_type,
+          command: connection.command,
+          args: parseJson(connection.args) || [],
+          env: {
+            ...(parseJson(connection.env) || {}),
+            ...(parseJson(connection.credentials) || {})
+          },
+          url: connection.url
+        };
+
+        const tools = await mcpClientManager.listTools(
+          req.user.userId,
+          connection.server_id,
+          serverConfig
+        );
+
+        allTools.push({
+          server: {
+            id: connection.server_id,
+            key: connection.server_key,
+            name: connection.name,
+            icon: connection.icon
+          },
+          tools
+        });
+
+      } catch (error) {
+        console.error(`Error fetching tools for ${connection.name}:`, error);
+      }
+    }
+
+    res.json({
+      success: true,
+      servers: allTools
+    });
+
+  } catch (error) {
+    console.error('Error fetching available tools:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch available tools'
+    });
+  }
+});
+
+export default router;
