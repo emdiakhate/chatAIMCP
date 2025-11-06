@@ -39,11 +39,25 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
         api.getMCPCategories(),
       ]);
 
+      console.log('[MCPMarketplace] API Response:', {
+        serversCount: serversRes.servers?.length,
+        servers: serversRes.servers,
+        total: serversRes.total,
+        connections: connectionsRes.connections,
+        categories: categoriesRes.categories
+      });
+
       setServers(serversRes.servers || []);
       setConnections(connectionsRes.connections || []);
       setCategories([{ key: 'all', name: 'All', serverCount: serversRes.total }, ...(categoriesRes.categories || [])]);
+
+      console.log('[MCPMarketplace] State updated:', {
+        serversCount: serversRes.servers?.length,
+        connectionsCount: connectionsRes.connections?.length
+      });
     } catch (error: any) {
       console.error('Failed to load marketplace data:', error);
+      console.error('Error details:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -102,6 +116,17 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
 
     return matchesSearch && matchesCategory;
   });
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[MCPMarketplace] Filtering:', {
+      totalServers: servers.length,
+      filteredServers: filteredServers.length,
+      searchQuery,
+      selectedCategory,
+      serversList: servers.map(s => ({ id: s.id, name: s.name, category: s.category }))
+    });
+  }, [servers, filteredServers, searchQuery, selectedCategory]);
 
   if (!isOpen) return null;
 
