@@ -3,10 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase, seedMCPServers, closePool } from './config/database-pg.js';
 
-// Routes existantes (à adapter pour PostgreSQL)
-import authRoutes from './routes/auth.js';
+// Routes PostgreSQL
+import authRoutes from './routes/auth-pg.js';
+import conversationsRoutes from './routes/conversations-pg.js';
 import integrationsRoutes from './routes/integrations.js';
-import conversationsRoutes from './routes/conversations.js';
 import googleCallbackRoutes from './routes/googleCallback.js';
 
 // Nouvelles routes MCP

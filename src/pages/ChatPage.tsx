@@ -6,6 +6,8 @@ import { ChatHeader } from '../components/ChatHeader';
 import { MessageList } from '../components/MessageList';
 import { ChatInput } from '../components/ChatInput';
 import { IntegrationsModal } from '../components/IntegrationsModal';
+import { MCPToolsPanel } from '../components/MCPToolsPanel';
+import { MCPMarketplace } from '../components/MCPMarketplace';
 import { Loader2 } from 'lucide-react';
 
 export interface Message {
@@ -42,6 +44,8 @@ export const ChatPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
+  const [showMCPPanel, setShowMCPPanel] = useState(false);
+  const [showMCPMarketplace, setShowMCPMarketplace] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -130,6 +134,7 @@ export const ChatPage: React.FC = () => {
         onNewConversation={createNewConversation}
         onDeleteConversation={deleteConversation}
         onShowIntegrations={() => setShowIntegrations(true)}
+        onShowMCPPanel={() => setShowMCPPanel(true)}
         onLogout={logout}
       />
 
@@ -147,9 +152,15 @@ export const ChatPage: React.FC = () => {
                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">
                   Start a new conversation
                 </h2>
-                <p className="text-gray-600">
-                  Ask me anything! I can search your Google Drive and Gmail to provide contextual answers.
+                <p className="text-gray-600 mb-6">
+                  Ask me anything! I can use your connected MCP tools to provide contextual answers.
                 </p>
+                <button
+                  onClick={() => setShowMCPPanel(true)}
+                  className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Manage My Tools
+                </button>
               </div>
             </div>
           ) : (
@@ -163,6 +174,27 @@ export const ChatPage: React.FC = () => {
 
       {showIntegrations && (
         <IntegrationsModal onClose={() => setShowIntegrations(false)} />
+      )}
+
+      {showMCPPanel && (
+        <MCPToolsPanel
+          isOpen={showMCPPanel}
+          onClose={() => setShowMCPPanel(false)}
+          onOpenMarketplace={() => {
+            setShowMCPPanel(false);
+            setShowMCPMarketplace(true);
+          }}
+        />
+      )}
+
+      {showMCPMarketplace && (
+        <MCPMarketplace
+          isOpen={showMCPMarketplace}
+          onClose={() => setShowMCPMarketplace(false)}
+          onConnectionCreated={() => {
+            // Refresh connections when coming back to tools panel
+          }}
+        />
       )}
     </div>
   );

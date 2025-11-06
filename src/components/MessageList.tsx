@@ -2,6 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bot, User, ExternalLink } from 'lucide-react';
 import { Message, Source } from '../pages/ChatPage';
+import { ToolCallIndicator } from './ToolCallIndicator';
 
 interface MessageListProps {
   messages: Message[];
@@ -11,7 +12,23 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {messages.map((message) => {
-        const sources: Source[] = message.sources ? JSON.parse(message.sources) : [];
+        let sources: Source[] = [];
+        let toolCalls: any[] = [];
+
+        // Parse sources - peut être un tableau de sources ou un tableau de tool calls
+        if (message.sources) {
+          try {
+            const parsed = JSON.parse(message.sources);
+            // Vérifier si c'est des tool calls (ont une propriété 'tool')
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].tool) {
+              toolCalls = parsed;
+            } else {
+              sources = parsed;
+            }
+          } catch (e) {
+            console.error('Error parsing sources:', e);
+          }
+        }
 
         return (
           <div
@@ -69,6 +86,12 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
                   )}
                 </div>
 
+                {/* Tool Calls Indicators */}
+                {message.role === 'assistant' && toolCalls.length > 0 && (
+                  <ToolCallIndicator toolCalls={toolCalls} />
+                )}
+
+                {/* Sources */}
                 {sources.length > 0 && (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs font-medium text-gray-600">Sources:</p>

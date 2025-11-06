@@ -1,0 +1,21 @@
+{
+  "name": "@chataimcp/mcp-server-filesystem",
+  "version": "1.0.0",
+  "description": "MCP server for local filesystem access",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mcp-server-filesystem": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "filesystem",
+    "model-context-protocol"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  }
+}
