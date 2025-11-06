@@ -1,8 +1,12 @@
 import express from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import db from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getAuthenticatedClient, searchGoogleDrive, searchGmail } from '../utils/google.js';
+import {
+  chatCompletion,
+  convertGeminiHistoryToOpenAI,
+  extractTextFromResponse
+} from '../utils/openrouter.js';
 
 const router = express.Router();
 
@@ -54,33 +58,44 @@ router.post('/chat', authenticateToken, async (req, res) => {
       console.log('Integration search skipped:', integrationError.message);
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY not configured');
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error('OPENROUTER_API_KEY not configured');
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
+    // Récupérer l'historique de la conversation
     const previousMessages = db.prepare(
       'SELECT role, content FROM messages WHERE conversation_id = ? AND id < (SELECT MAX(id) FROM messages WHERE conversation_id = ?) ORDER BY created_at ASC'
     ).all(conversationId, conversationId);
 
-    let chatHistory = previousMessages.map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
-    }));
+    // Convertir l'historique au format OpenAI
+    const chatHistory = convertGeminiHistoryToOpenAI(
+      previousMessages.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }],
+      }))
+    );
 
-    const chat = model.startChat({
-      history: chatHistory,
-      generationConfig: {
-        maxOutputTokens: 2048,
+    // Ajouter le nouveau message avec le contexte
+    const messages = [
+      ...chatHistory,
+      {
+        role: 'user',
+        content: message + contextInfo
+      }
+    ];
+
+    // Appeler OpenRouter
+    const result = await chatCompletion(
+      process.env.OPENROUTER_API_KEY,
+      messages,
+      {
+        model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
         temperature: 0.7,
-      },
-    });
+        max_tokens: 2048
+      }
+    );
 
-    const prompt = message + contextInfo;
-    const result = await chat.sendMessage(prompt);
-    const response = result.response.text();
+    const response = extractTextFromResponse(result);
 
     const sourcesJson = sources.length > 0 ? JSON.stringify(sources) : null;
 

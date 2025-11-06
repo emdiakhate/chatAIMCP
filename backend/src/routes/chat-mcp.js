@@ -1,9 +1,16 @@
 import express from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { query, getClient } from '../config/database-pg.js';
 import { authenticateToken } from '../middleware/auth.js';
 import toolExecutor from '../mcp/tool-executor.js';
 import mcpClientManager from '../mcp/client-manager.js';
+import {
+  chatCompletion,
+  convertGeminiHistoryToOpenAI,
+  convertGeminiToolsToOpenAI,
+  extractTextFromResponse,
+  extractToolCallsFromResponse,
+  prepareToolResponseMessages
+} from '../utils/openrouter.js';
 
 const router = express.Router();
 
@@ -78,11 +85,14 @@ router.post('/chat', authenticateToken, async (req, res) => {
           serverConfig
         );
 
-        // Formater les outils pour Gemini
+        // Formater les outils pour OpenAI/OpenRouter
         const formattedTools = tools.map(tool => ({
+          type: 'function',
+          function: {
           name: `${connection.server_key}__${tool.name}`,
           description: `[${connection.name}] ${tool.description}`,
           parameters: tool.inputSchema || {}
+          }
         }));
 
         availableTools.push(...formattedTools);
@@ -103,18 +113,10 @@ router.post('/chat', authenticateToken, async (req, res) => {
       }
     }
 
-    // Initialiser Gemini
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY not configured');
+    // Vérifier la clé API OpenRouter
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error('OPENROUTER_API_KEY not configured');
     }
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-pro',
-      tools: availableTools.length > 0 ? [{
-        functionDeclarations: availableTools
-      }] : undefined
-    });
 
     // Récupérer l'historique de la conversation
     const messagesResult = await query(
@@ -122,48 +124,70 @@ router.post('/chat', authenticateToken, async (req, res) => {
       [conversationId]
     );
 
-    const chatHistory = messagesResult.rows
-      .slice(0, -1) // Exclure le dernier message (déjà ajouté)
+    // Convertir l'historique au format OpenAI (exclure le dernier message déjà ajouté)
+    const chatHistory = convertGeminiHistoryToOpenAI(
+      messagesResult.rows
+        .slice(0, -1)
       .map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.content }]
-      }));
+        }))
+    );
 
-    // Démarrer le chat
-    const chat = model.startChat({
-      history: chatHistory,
-      generationConfig: {
-        maxOutputTokens: 4096,
-        temperature: 0.7,
+    // Ajouter le nouveau message
+    let messages = [
+      ...chatHistory,
+      {
+        role: 'user',
+        content: message
       }
-    });
+    ];
 
-    // Envoyer le message et gérer les appels d'outils
-    let result = await chat.sendMessage(message);
-    let response = result.response;
     let toolCalls = [];
     let iterations = 0;
     const MAX_ITERATIONS = 5;
+    let finalResponse = '';
 
     // Boucle de tool calling
-    while (response.functionCalls && iterations < MAX_ITERATIONS) {
+    while (iterations < MAX_ITERATIONS) {
       iterations++;
-      console.log(`[Chat MCP] Itération ${iterations}: ${response.functionCalls.length} outils appelés`);
 
-      const functionCalls = response.functionCalls;
-      const functionResponses = [];
+      // Appeler OpenRouter
+      const result = await chatCompletion(
+        process.env.OPENROUTER_API_KEY,
+        messages,
+        {
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+          temperature: 0.7,
+          max_tokens: 4096,
+          tools: availableTools.length > 0 ? availableTools : undefined,
+          tool_choice: availableTools.length > 0 ? 'auto' : null
+        }
+      );
+
+      // Vérifier s'il y a des tool calls
+      const extractedToolCalls = extractToolCallsFromResponse(result);
+
+      if (extractedToolCalls.length === 0) {
+        // Pas de tool calls, récupérer la réponse textuelle
+        finalResponse = extractTextFromResponse(result);
+        break;
+      }
+
+      // Il y a des tool calls à exécuter
+      console.log(`[Chat MCP] Itération ${iterations}: ${extractedToolCalls.length} outils appelés`);
+
+      const toolResults = [];
 
       // Exécuter chaque outil appelé
-      for (const functionCall of functionCalls) {
-        const toolMeta = toolsMetadata.find(t => t.compositeName === functionCall.name);
+      for (const toolCall of extractedToolCalls) {
+        const toolMeta = toolsMetadata.find(t => t.compositeName === toolCall.name);
 
         if (!toolMeta) {
-          console.error(`Outil inconnu: ${functionCall.name}`);
-          functionResponses.push({
-            name: functionCall.name,
-            response: {
-              error: 'Tool not found'
-            }
+          console.error(`Outil inconnu: ${toolCall.name}`);
+          toolResults.push({
+            id: toolCall.id,
+            result: { error: 'Tool not found' }
           });
           continue;
         }
@@ -176,7 +200,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
           toolMeta.serverId,
           toolMeta.serverConfig,
           toolMeta.originalName,
-          functionCall.args || {},
+          toolCall.args || {},
           conversationId
         );
 
@@ -191,7 +215,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
           conversationId,
           toolMeta.serverId,
           toolMeta.originalName,
-          JSON.stringify(functionCall.args || {}),
+          JSON.stringify(toolCall.args || {}),
           toolResult.success ? JSON.stringify(toolResult.result) : null,
           toolResult.error || null,
           toolResult.executionTime,
@@ -205,22 +229,20 @@ router.post('/chat', authenticateToken, async (req, res) => {
           executionTime: toolResult.executionTime
         });
 
-        // Préparer la réponse pour Gemini
-        functionResponses.push({
-          name: functionCall.name,
-          response: toolResult.success ? toolResult.result : {
-            error: toolResult.error
-          }
+        toolResults.push({
+          id: toolCall.id,
+          result: toolResult.success ? toolResult.result : { error: toolResult.error }
         });
       }
 
-      // Continuer la conversation avec les résultats des outils
-      result = await chat.sendMessage(functionResponses);
-      response = result.response;
+      // Préparer les messages pour la réponse avec les résultats des outils
+      const toolResponseMessages = prepareToolResponseMessages(extractedToolCalls, toolResults);
+      messages = [...messages, ...toolResponseMessages];
     }
 
-    // Obtenir la réponse finale
-    const finalResponse = response.text();
+    if (!finalResponse && iterations >= MAX_ITERATIONS) {
+      finalResponse = 'Maximum iterations reached. Please try again.';
+    }
 
     // Enregistrer la réponse de l'assistant
     await query(
