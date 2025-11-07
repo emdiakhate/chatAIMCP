@@ -355,6 +355,66 @@ class ApiClient {
 
     return response.json();
   }
+
+  // === MEMORY MCP ===
+
+  async getMCPMemories() {
+    // This should call the Memory MCP server to retrieve all memories
+    const response = await fetch(`${API_BASE_URL}/mcp/memory/list`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get memories');
+    }
+
+    return response.json();
+  }
+
+  async createMCPMemory(memoryData: { content: string; tags?: string[] }) {
+    // This should call the Memory MCP server to store a new memory
+    const response = await fetch(`${API_BASE_URL}/mcp/memory/store`, {
+      method: 'POST',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify(memoryData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create memory');
+    }
+
+    return response.json();
+  }
+
+  async deleteMCPMemory(memoryId: string) {
+    // This should call the Memory MCP server to delete a memory
+    const response = await fetch(`${API_BASE_URL}/mcp/memory/${memoryId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete memory');
+    }
+
+    return response.json();
+  }
+
+  async updateMCPConnectionConfig(connectionId: number, configOverrides: any) {
+    const response = await fetch(`${API_BASE_URL}/mcp/connections/${connectionId}/config`, {
+      method: 'PATCH',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify({ config_overrides: configOverrides }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update connection config');
+    }
+
+    return response.json();
+  }
 }
 
 export const api = new ApiClient();
