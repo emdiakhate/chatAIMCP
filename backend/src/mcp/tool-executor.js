@@ -12,6 +12,86 @@ class ToolExecutor {
   }
 
   /**
+   * Parse les données de fichier depuis un résultat de lecture de fichier
+   * @param {Object} result - Résultat MCP du tool read_file
+   * @param {Object} args - Arguments du tool call (contient path)
+   * @returns {Object|null} - Données structurées du fichier ou null
+   */
+  parseFileData(result, args) {
+    try {
+      // Vérifier que c'est bien un résultat de lecture de fichier
+      if (!result || !result.content || !Array.isArray(result.content)) {
+        return null;
+      }
+
+      const textContent = result.content[0]?.text;
+      if (!textContent) return null;
+
+      // Parser le format de sortie du serveur filesystem
+      // Format: "File: xxx\nType: xxx\nSize: xxx\n...\n\n--- Content ---\n\n[content]"
+      const lines = textContent.split('\n');
+      const metadata = {};
+      let contentStartIndex = -1;
+
+      // Extraire les métadonnées
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (line === '--- Content ---') {
+          contentStartIndex = i + 2; // Skip "--- Content ---" and empty line
+          break;
+        }
+
+        if (line.includes(':')) {
+          const [key, ...valueParts] = line.split(':');
+          const value = valueParts.join(':').trim();
+
+          const normalizedKey = key.trim().toLowerCase();
+          if (normalizedKey === 'file') metadata.fileName = value;
+          else if (normalizedKey === 'type') metadata.fileType = value;
+          else if (normalizedKey === 'size') metadata.size = value;
+          else if (normalizedKey === 'modified') metadata.modified = value;
+          else if (normalizedKey === 'pages') metadata.pages = parseInt(value);
+          else if (normalizedKey === 'sheets') {
+            // Format: "3 (Sheet1, Sheet2, Sheet3)"
+            const match = value.match(/(\d+)\s*\(([^)]+)\)/);
+            if (match) {
+              metadata.sheetCount = parseInt(match[1]);
+              metadata.sheetNames = match[2].split(',').map(s => s.trim());
+            }
+          }
+          else if (normalizedKey === 'lines') metadata.lines = parseInt(value);
+        }
+      }
+
+      // Extraire le contenu
+      const content = contentStartIndex >= 0
+        ? lines.slice(contentStartIndex).join('\n')
+        : textContent;
+
+      // Construire l'objet fileData compatible avec FilePreview
+      return {
+        fileName: metadata.fileName || args.path?.split('/').pop() || 'unknown',
+        fileType: metadata.fileType || 'text',
+        content: content,
+        metadata: {
+          size: metadata.size,
+          pages: metadata.pages,
+          sheetCount: metadata.sheetCount,
+          sheetNames: metadata.sheetNames,
+          lines: metadata.lines,
+          modified: metadata.modified
+        },
+        downloadUrl: args.path // Le chemin original peut servir de download URL
+      };
+
+    } catch (error) {
+      console.error('[ToolExecutor] Erreur lors du parsing des données de fichier:', error);
+      return null;
+    }
+  }
+
+  /**
    * Exécute un appel d'outil MCP
    * @param {number} userId - ID de l'utilisateur
    * @param {number} serverId - ID du serveur MCP
@@ -38,6 +118,15 @@ class ToolExecutor {
 
       const executionTime = Date.now() - startTime;
 
+      // Détecter si c'est une lecture de fichier et extraire les données structurées
+      let fileData = null;
+      if (toolName === 'read_file' && result && result.content) {
+        fileData = this.parseFileData(result, args);
+        if (fileData) {
+          console.log(`[ToolExecutor] Données de fichier extraites: ${fileData.fileName} (${fileData.fileType})`);
+        }
+      }
+
       // Enregistrer l'exécution dans l'historique
       const execution = {
         userId,
@@ -46,6 +135,7 @@ class ToolExecutor {
         toolName,
         args,
         result,
+        fileData, // Ajouter fileData à l'historique
         executionTime,
         timestamp: new Date().toISOString(),
         success: true
@@ -59,6 +149,7 @@ class ToolExecutor {
         success: true,
         toolName,
         result,
+        fileData, // Inclure fileData dans le retour
         executionTime
       };
 

@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Bot, User, ExternalLink } from 'lucide-react';
 import { Message, Source } from '../pages/ChatPage';
 import { ToolCallIndicator } from './ToolCallIndicator';
+import { FilePreview } from './FilePreview';
 
 interface MessageListProps {
   messages: Message[];
@@ -96,6 +97,25 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
                 {/* Tool Calls Indicators */}
                 {message.role === 'assistant' && toolCalls.length > 0 && (
                   <ToolCallIndicator toolCalls={toolCalls} />
+                )}
+
+                {/* File Previews - Render files that were read */}
+                {message.role === 'assistant' && toolCalls.length > 0 && (
+                  <>
+                    {toolCalls
+                      .filter(tc => tc.fileData)
+                      .map((tc, idx) => (
+                        <div key={idx} className="mt-3">
+                          <FilePreview
+                            fileName={tc.fileData.fileName}
+                            fileType={tc.fileData.fileType}
+                            content={tc.fileData.content}
+                            metadata={tc.fileData.metadata}
+                            downloadUrl={tc.fileData.downloadUrl}
+                          />
+                        </div>
+                      ))}
+                  </>
                 )}
 
                 {/* Sources */}

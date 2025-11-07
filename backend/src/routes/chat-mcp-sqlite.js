@@ -270,14 +270,22 @@ Remember: You are empowered to take action using these tools. Don't just describ
             conversationId
           );
 
-          toolCalls.push({
+          const toolCallData = {
             tool: toolMeta.originalName,
             server: toolMeta.serverKey,
             args: toolCall.args,
             result: execResult.result,
             success: execResult.success,
             executionTime: execResult.executionTime
-          });
+          };
+
+          // Ajouter fileData si présent (pour les read_file)
+          if (execResult.fileData) {
+            toolCallData.fileData = execResult.fileData;
+            console.log(`[Chat MCP] Fichier détecté: ${execResult.fileData.fileName}`);
+          }
+
+          toolCalls.push(toolCallData);
 
           toolResults.push({
             tool_call_id: toolCall.id,
