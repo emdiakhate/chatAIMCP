@@ -6,7 +6,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = process.env.DATABASE_PATH || join(__dirname, '../../database/chatai-mcp.db');
+const dbPath = process.env.DATABASE_PATH || join(__dirname, '../../database/chatai.db');
 const dbDir = dirname(dbPath);
 
 if (!fs.existsSync(dbDir)) {
@@ -15,6 +15,7 @@ if (!fs.existsSync(dbDir)) {
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON'); // Activer les contraintes de clé étrangère
 
 /**
  * Initialise le schéma de la base de données SQLite avec support MCP

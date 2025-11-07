@@ -76,15 +76,39 @@ router.post('/chat', authenticateToken, async (req, res) => {
 
     for (const connection of activeConnections) {
       try {
+        // Parser les config_overrides pour appliquer les modifications
+        const configOverrides = parseJson(connection.config_overrides) || {};
+        
+        // Construire la configuration du serveur avec les overrides
+        let serverArgs = parseJson(connection.args) || [];
+        
+        // Si c'est le serveur filesystem et qu'un chemin est spécifié dans config_overrides
+        if (connection.server_key === 'filesystem' && configOverrides.allowedPath) {
+          // Gérer plusieurs chemins (array) ou un seul chemin (string)
+          const paths = Array.isArray(configOverrides.allowedPath)
+            ? configOverrides.allowedPath
+            : [configOverrides.allowedPath];
+          // Le serveur filesystem accepte plusieurs chemins comme arguments séparés
+          serverArgs = ['-y', '@modelcontextprotocol/server-filesystem', ...paths];
+        }
+        
         const serverConfig = {
           id: connection.server_id,
           name: connection.name,
           transport_type: connection.transport_type,
           command: connection.command,
-          args: parseJson(connection.args) || [],
+          args: serverArgs,
           env: {
             ...(parseJson(connection.env) || {}),
-            ...(parseJson(connection.credentials) || {})
+            ...(parseJson(connection.credentials) || {}),
+            // Ajouter FILESYSTEM_ALLOWED_PATHS si spécifié (peut être un string ou un array)
+            ...(configOverrides.allowedPath
+              ? {
+                  FILESYSTEM_ALLOWED_PATHS: Array.isArray(configOverrides.allowedPath)
+                    ? configOverrides.allowedPath.join(',')
+                    : configOverrides.allowedPath
+                }
+              : {})
           },
           url: connection.url
         };
@@ -320,11 +344,24 @@ Remember: You are empowered to take action using these tools. Don't just describ
       [conversationId]
     );
 
+    // Récupérer tous les messages mis à jour pour la compatibilité avec le frontend
+    const updatedMessagesResult = query(
+      'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+      [conversationId]
+    );
+
+    // Formater les messages pour le frontend
+    const formattedMessages = updatedMessagesResult.rows.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      sources: parseJson(msg.sources),
+      created_at: msg.created_at
+    }));
+
     res.json({
-      success: true,
-      response: finalResponse,
-      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-      iterations
+      messages: formattedMessages,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined
     });
 
   } catch (error) {
@@ -357,15 +394,39 @@ router.get('/chat/available-tools', authenticateToken, async (req, res) => {
 
     for (const connection of activeConnections) {
       try {
+        // Parser les config_overrides pour appliquer les modifications
+        const configOverrides = parseJson(connection.config_overrides) || {};
+        
+        // Construire la configuration du serveur avec les overrides
+        let serverArgs = parseJson(connection.args) || [];
+        
+        // Si c'est le serveur filesystem et qu'un chemin est spécifié dans config_overrides
+        if (connection.server_key === 'filesystem' && configOverrides.allowedPath) {
+          // Gérer plusieurs chemins (array) ou un seul chemin (string)
+          const paths = Array.isArray(configOverrides.allowedPath)
+            ? configOverrides.allowedPath
+            : [configOverrides.allowedPath];
+          // Le serveur filesystem accepte plusieurs chemins comme arguments séparés
+          serverArgs = ['-y', '@modelcontextprotocol/server-filesystem', ...paths];
+        }
+        
         const serverConfig = {
           id: connection.server_id,
           name: connection.name,
           transport_type: connection.transport_type,
           command: connection.command,
-          args: parseJson(connection.args) || [],
+          args: serverArgs,
           env: {
             ...(parseJson(connection.env) || {}),
-            ...(parseJson(connection.credentials) || {})
+            ...(parseJson(connection.credentials) || {}),
+            // Ajouter FILESYSTEM_ALLOWED_PATHS si spécifié (peut être un string ou un array)
+            ...(configOverrides.allowedPath
+              ? {
+                  FILESYSTEM_ALLOWED_PATHS: Array.isArray(configOverrides.allowedPath)
+                    ? configOverrides.allowedPath.join(',')
+                    : configOverrides.allowedPath
+                }
+              : {})
           },
           url: connection.url
         };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { X, Settings, Loader2 } from 'lucide-react';
+import { FilesystemConfigModal } from './FilesystemConfigModal';
 
 interface MCPToolsPanelProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
   const [selectedConnection, setSelectedConnection] = useState<any>(null);
   const [tools, setTools] = useState<any[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configConnection, setConfigConnection] = useState<any>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -76,6 +79,27 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
   const handleSelectConnection = async (connection: any) => {
     setSelectedConnection(connection);
     await loadTools(connection.id);
+  };
+
+  const handleConfigure = (connection: any) => {
+    setConfigConnection(connection);
+    setShowConfigModal(true);
+  };
+
+  const handleConfigUpdated = async () => {
+    await loadConnections();
+    if (configConnection) {
+      // Recharger la connexion sélectionnée si c'est celle qui a été configurée
+      const updatedConnections = await api.getMCPConnections();
+      const updated = updatedConnections.connections?.find(
+        (c: any) => c.server_id === configConnection.server_id
+      );
+      if (updated) {
+        setSelectedConnection(updated);
+        await loadTools(updated.id);
+      }
+    }
+    setConfigConnection(null);
   };
 
   if (!isOpen) return null;
@@ -200,6 +224,14 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                   </div>
 
                   <div className="flex gap-2">
+                    {selectedConnection.server_key === 'filesystem' && (
+                      <button
+                        onClick={() => handleConfigure(selectedConnection)}
+                        className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        Configurer
+                      </button>
+                    )}
                     <button
                       onClick={() => handleTestConnection(selectedConnection.id)}
                       className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
@@ -210,7 +242,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                       onClick={() => handleDisconnect(selectedConnection.id)}
                       className="px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
                     >
-                      Disconnect
+                      Déconnecter
                     </button>
                   </div>
                 </div>
@@ -285,6 +317,19 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Filesystem Configuration Modal */}
+      {showConfigModal && configConnection && (
+        <FilesystemConfigModal
+          isOpen={showConfigModal}
+          onClose={() => {
+            setShowConfigModal(false);
+            setConfigConnection(null);
+          }}
+          connection={configConnection}
+          onConfigUpdated={handleConfigUpdated}
+        />
+      )}
     </div>
   );
 };

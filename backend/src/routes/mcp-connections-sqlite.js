@@ -53,10 +53,38 @@ router.get('/connections', authenticateToken, async (req, res) => {
       ORDER BY c.created_at DESC
     `, [req.user.userId]);
 
-    const connections = result.rows.map(conn => ({
-      ...conn,
-      capabilities: conn.capabilities ? JSON.parse(conn.capabilities) : []
-    }));
+    const connections = result.rows.map(conn => {
+      const parsed = { ...conn };
+      // Parser les champs JSON
+      if (parsed.capabilities) {
+        try {
+          parsed.capabilities = typeof parsed.capabilities === 'string' 
+            ? JSON.parse(parsed.capabilities) 
+            : parsed.capabilities;
+        } catch (e) {
+          parsed.capabilities = [];
+        }
+      }
+      if (parsed.config_overrides) {
+        try {
+          parsed.config_overrides = typeof parsed.config_overrides === 'string'
+            ? JSON.parse(parsed.config_overrides)
+            : parsed.config_overrides;
+        } catch (e) {
+          parsed.config_overrides = {};
+        }
+      }
+      if (parsed.credentials) {
+        try {
+          parsed.credentials = typeof parsed.credentials === 'string'
+            ? JSON.parse(parsed.credentials)
+            : parsed.credentials;
+        } catch (e) {
+          parsed.credentials = {};
+        }
+      }
+      return parsed;
+    });
 
     res.json({
       success: true,
@@ -88,6 +116,15 @@ router.post('/connections', authenticateToken, async (req, res) => {
       });
     }
 
+    // Vérifier que l'utilisateur existe
+    const userResult = query('SELECT id FROM users WHERE id = ?', [req.user.userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
     // Récupérer les infos du serveur
     const serverResult = query(
       'SELECT * FROM mcp_servers WHERE id = ?',
@@ -97,7 +134,7 @@ router.post('/connections', authenticateToken, async (req, res) => {
     if (serverResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Server not found'
+        error: `Server not found with id: ${server_id}`
       });
     }
 
@@ -129,6 +166,13 @@ router.post('/connections', authenticateToken, async (req, res) => {
         req.user.userId,
         server_id
       ]);
+
+      // Déconnecter le client MCP existant pour forcer la recréation avec la nouvelle config
+      try {
+        await mcpClientManager.disconnectClient(req.user.userId, server_id);
+      } catch (e) {
+        // Ignorer si le client n'existe pas
+      }
 
       const connResult = query('SELECT * FROM user_mcp_connections WHERE user_id = ? AND server_id = ?', [req.user.userId, server_id]);
       connection = connResult.rows[0];

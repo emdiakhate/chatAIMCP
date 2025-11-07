@@ -114,7 +114,8 @@ export const ChatPage: React.FC = () => {
 
     setSending(true);
     try {
-      const { messages: updatedMessages } = await api.sendMessage(currentConversation.id, content);
+      const response = await api.sendMessage(currentConversation.id, content);
+      const updatedMessages = response.messages || [];
       setMessages(updatedMessages);
       await loadConversations();
     } catch (error: any) {
@@ -146,7 +147,7 @@ export const ChatPage: React.FC = () => {
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
             </div>
-          ) : messages.length === 0 ? (
+          ) : !messages || messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center max-w-md">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">
