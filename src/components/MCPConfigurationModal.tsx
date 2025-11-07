@@ -3,6 +3,7 @@ import { X, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
 import { GmailConfigModal } from './GmailConfigModal';
 import { FilesystemConfigModal } from './FilesystemConfigModal';
 import { SlackConfigModal } from './SlackConfigModal';
+import { SalesforceConfigModal } from './SalesforceConfigModal';
 
 interface MCPConfigurationModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
   const [showGmailConfig, setShowGmailConfig] = useState(false);
   const [showFilesystemConfig, setShowFilesystemConfig] = useState(false);
   const [showSlackConfig, setShowSlackConfig] = useState(false);
+  const [showSalesforceConfig, setShowSalesforceConfig] = useState(false);
 
   if (!isOpen) return null;
 
@@ -45,6 +47,9 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
         break;
       case 'slack':
         setShowSlackConfig(true);
+        break;
+      case 'salesforce':
+        setShowSalesforceConfig(true);
         break;
       case 'gdrive':
         // Similar to Gmail OAuth
@@ -198,6 +203,14 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
                         <li>"Upload this file to #team channel"</li>
                       </>
                     )}
+                    {server.server_key === 'salesforce' && (
+                      <>
+                        <li>"Show me all open opportunities over $50k"</li>
+                        <li>"Find contacts at Acme Corporation"</li>
+                        <li>"Create a new lead for Jane Smith"</li>
+                        <li>"What are my top 5 accounts by revenue?"</li>
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -243,6 +256,15 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
         onClose={() => setShowSlackConfig(false)}
         onConfigured={() => {
           setShowSlackConfig(false);
+          onConfigured?.();
+        }}
+      />
+
+      <SalesforceConfigModal
+        isOpen={showSalesforceConfig}
+        onClose={() => setShowSalesforceConfig(false)}
+        onConfigured={() => {
+          setShowSalesforceConfig(false);
           onConfigured?.();
         }}
       />
