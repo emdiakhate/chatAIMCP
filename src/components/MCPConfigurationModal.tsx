@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
 import { GmailConfigModal } from './GmailConfigModal';
 import { FilesystemConfigModal } from './FilesystemConfigModal';
+import { SlackConfigModal } from './SlackConfigModal';
 
 interface MCPConfigurationModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
 }) => {
   const [showGmailConfig, setShowGmailConfig] = useState(false);
   const [showFilesystemConfig, setShowFilesystemConfig] = useState(false);
+  const [showSlackConfig, setShowSlackConfig] = useState(false);
 
   if (!isOpen) return null;
 
@@ -40,6 +42,9 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
         break;
       case 'filesystem':
         setShowFilesystemConfig(true);
+        break;
+      case 'slack':
+        setShowSlackConfig(true);
         break;
       case 'gdrive':
         // Similar to Gmail OAuth
@@ -185,6 +190,14 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
                         <li>"Recall what we discussed about the project"</li>
                       </>
                     )}
+                    {server.server_key === 'slack' && (
+                      <>
+                        <li>"Send a message to #general channel"</li>
+                        <li>"List all channels in my workspace"</li>
+                        <li>"Search for messages about 'project update'"</li>
+                        <li>"Upload this file to #team channel"</li>
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -224,6 +237,15 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
           }}
         />
       )}
+
+      <SlackConfigModal
+        isOpen={showSlackConfig}
+        onClose={() => setShowSlackConfig(false)}
+        onConfigured={() => {
+          setShowSlackConfig(false);
+          onConfigured?.();
+        }}
+      />
     </>
   );
 };
