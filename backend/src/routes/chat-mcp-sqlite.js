@@ -3,6 +3,7 @@ import db, { query } from '../config/database-sqlite-mcp.js';
 import { authenticateToken } from '../middleware/auth.js';
 import toolExecutor from '../mcp/tool-executor.js';
 import mcpClientManager from '../mcp/client-manager.js';
+import { getApiKey } from './auth-apikey.js';
 import {
   chatCompletion,
   convertGeminiHistoryToOpenAI,
@@ -91,25 +92,47 @@ router.post('/chat', authenticateToken, async (req, res) => {
           // Le serveur filesystem accepte plusieurs chemins comme arguments séparés
           serverArgs = ['-y', '@modelcontextprotocol/server-filesystem', ...paths];
         }
-        
+
+        // Build environment variables
+        const envVars = {
+          ...(parseJson(connection.env) || {}),
+          ...(parseJson(connection.credentials) || {}),
+          // Ajouter FILESYSTEM_ALLOWED_PATHS si spécifié
+          ...(configOverrides.allowedPath
+            ? {
+                FILESYSTEM_ALLOWED_PATHS: Array.isArray(configOverrides.allowedPath)
+                  ? configOverrides.allowedPath.join(',')
+                  : configOverrides.allowedPath
+              }
+            : {})
+        };
+
+        // Inject API keys for API key-based servers
+        const apiKeyServers = {
+          'anthropic': 'ANTHROPIC_API_KEY',
+          'openai': 'OPENAI_API_KEY',
+          'hubspot': 'HUBSPOT_API_KEY',
+          'airtable': 'AIRTABLE_API_KEY',
+          'linear': 'LINEAR_API_KEY',
+        };
+
+        if (apiKeyServers[connection.server_key]) {
+          const apiKey = getApiKey(req.user.userId, connection.server_key);
+          if (apiKey) {
+            envVars[apiKeyServers[connection.server_key]] = apiKey;
+            console.log(`[Chat MCP] API key injected for ${connection.server_key}`);
+          } else {
+            console.warn(`[Chat MCP] No API key found for ${connection.server_key}, server may fail`);
+          }
+        }
+
         const serverConfig = {
           id: connection.server_id,
           name: connection.name,
           transport_type: connection.transport_type,
           command: connection.command,
           args: serverArgs,
-          env: {
-            ...(parseJson(connection.env) || {}),
-            ...(parseJson(connection.credentials) || {}),
-            // Ajouter FILESYSTEM_ALLOWED_PATHS si spécifié (peut être un string ou un array)
-            ...(configOverrides.allowedPath
-              ? {
-                  FILESYSTEM_ALLOWED_PATHS: Array.isArray(configOverrides.allowedPath)
-                    ? configOverrides.allowedPath.join(',')
-                    : configOverrides.allowedPath
-                }
-              : {})
-          },
+          env: envVars,
           url: connection.url
         };
 
@@ -417,25 +440,47 @@ router.get('/chat/available-tools', authenticateToken, async (req, res) => {
           // Le serveur filesystem accepte plusieurs chemins comme arguments séparés
           serverArgs = ['-y', '@modelcontextprotocol/server-filesystem', ...paths];
         }
-        
+
+        // Build environment variables
+        const envVars = {
+          ...(parseJson(connection.env) || {}),
+          ...(parseJson(connection.credentials) || {}),
+          // Ajouter FILESYSTEM_ALLOWED_PATHS si spécifié
+          ...(configOverrides.allowedPath
+            ? {
+                FILESYSTEM_ALLOWED_PATHS: Array.isArray(configOverrides.allowedPath)
+                  ? configOverrides.allowedPath.join(',')
+                  : configOverrides.allowedPath
+              }
+            : {})
+        };
+
+        // Inject API keys for API key-based servers
+        const apiKeyServers = {
+          'anthropic': 'ANTHROPIC_API_KEY',
+          'openai': 'OPENAI_API_KEY',
+          'hubspot': 'HUBSPOT_API_KEY',
+          'airtable': 'AIRTABLE_API_KEY',
+          'linear': 'LINEAR_API_KEY',
+        };
+
+        if (apiKeyServers[connection.server_key]) {
+          const apiKey = getApiKey(req.user.userId, connection.server_key);
+          if (apiKey) {
+            envVars[apiKeyServers[connection.server_key]] = apiKey;
+            console.log(`[Chat MCP] API key injected for ${connection.server_key}`);
+          } else {
+            console.warn(`[Chat MCP] No API key found for ${connection.server_key}, server may fail`);
+          }
+        }
+
         const serverConfig = {
           id: connection.server_id,
           name: connection.name,
           transport_type: connection.transport_type,
           command: connection.command,
           args: serverArgs,
-          env: {
-            ...(parseJson(connection.env) || {}),
-            ...(parseJson(connection.credentials) || {}),
-            // Ajouter FILESYSTEM_ALLOWED_PATHS si spécifié (peut être un string ou un array)
-            ...(configOverrides.allowedPath
-              ? {
-                  FILESYSTEM_ALLOWED_PATHS: Array.isArray(configOverrides.allowedPath)
-                    ? configOverrides.allowedPath.join(',')
-                    : configOverrides.allowedPath
-                }
-              : {})
-          },
+          env: envVars,
           url: connection.url
         };
 
