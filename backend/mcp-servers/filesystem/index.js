@@ -5,6 +5,8 @@
  *
  * Provides safe access to local files within allowed directories.
  * Implements the Model Context Protocol for file operations.
+ *
+ * ENHANCED: Support for PDF, Word, Excel formats via file-reader
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -17,6 +19,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { readFile as readFileAdvanced, getFileMetadata } from '../../src/utils/file-reader.js';
 
 // Get allowed paths from environment or use default
 const ALLOWED_PATHS = process.env.FILESYSTEM_ALLOWED_PATHS
@@ -61,13 +64,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'read_file',
-        description: 'Read the contents of a file',
+        description: 'Read the contents of a file. Supports multiple formats: PDF, Word (.docx), Excel (.xlsx), and text files. Returns content with metadata (size, pages, sheets, etc.)',
         inputSchema: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: 'Path to the file to read',
+              description: 'Path to the file to read. Can be PDF, Word, Excel, or any text file.',
             },
           },
           required: ['path'],
@@ -163,13 +166,46 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const content = await fs.readFile(filePath, 'utf-8');
+        // Use advanced file reader with multi-format support (PDF, Word, Excel, etc.)
+        const result = await readFileAdvanced(filePath);
+
+        if (!result.success) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error reading file: ${result.error}`,
+              },
+            ],
+          };
+        }
+
+        // Format response with metadata
+        const metadata = [
+          `File: ${result.name}`,
+          `Type: ${result.type}`,
+          `Size: ${result.sizeHuman}`,
+          `Modified: ${new Date(result.modified).toLocaleString()}`,
+        ];
+
+        // Add format-specific metadata
+        if (result.metadata.pages) {
+          metadata.push(`Pages: ${result.metadata.pages}`);
+        }
+        if (result.metadata.sheetCount) {
+          metadata.push(`Sheets: ${result.metadata.sheetCount} (${result.metadata.sheetNames.join(', ')})`);
+        }
+        if (result.metadata.lines) {
+          metadata.push(`Lines: ${result.metadata.lines}`);
+        }
+
+        const metadataText = metadata.join('\n');
 
         return {
           content: [
             {
               type: 'text',
-              text: content,
+              text: `${metadataText}\n\n--- Content ---\n\n${result.content}`,
             },
           ],
         };
