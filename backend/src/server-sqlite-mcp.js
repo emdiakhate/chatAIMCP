@@ -17,6 +17,7 @@ import mcpMemoryRoutes from './routes/mcp-memory-sqlite.js';
 import oauthGoogleRoutes from './routes/oauth-google.js';
 import oauthSlackRoutes from './routes/oauth-slack.js';
 import oauthSalesforceRoutes from './routes/oauth-salesforce.js';
+import oauthTeamsRoutes from './routes/oauth-teams.js';
 
 // Gestionnaires MCP
 import mcpClientManager from './mcp/client-manager.js';
@@ -57,6 +58,7 @@ app.use('/api', chatMCPRoutes);
 app.use('/api/auth', oauthGoogleRoutes);
 app.use('/api/auth', oauthSlackRoutes);
 app.use('/api/auth', oauthSalesforceRoutes);
+app.use('/api/auth', oauthTeamsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

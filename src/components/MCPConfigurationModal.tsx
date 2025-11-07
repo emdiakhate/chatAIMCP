@@ -4,6 +4,7 @@ import { GmailConfigModal } from './GmailConfigModal';
 import { FilesystemConfigModal } from './FilesystemConfigModal';
 import { SlackConfigModal } from './SlackConfigModal';
 import { SalesforceConfigModal } from './SalesforceConfigModal';
+import { TeamsConfigModal } from './TeamsConfigModal';
 
 interface MCPConfigurationModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
   const [showFilesystemConfig, setShowFilesystemConfig] = useState(false);
   const [showSlackConfig, setShowSlackConfig] = useState(false);
   const [showSalesforceConfig, setShowSalesforceConfig] = useState(false);
+  const [showTeamsConfig, setShowTeamsConfig] = useState(false);
 
   if (!isOpen) return null;
 
@@ -50,6 +52,9 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
         break;
       case 'salesforce':
         setShowSalesforceConfig(true);
+        break;
+      case 'teams':
+        setShowTeamsConfig(true);
         break;
       case 'gdrive':
         // Similar to Gmail OAuth
@@ -211,6 +216,14 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
                         <li>"What are my top 5 accounts by revenue?"</li>
                       </>
                     )}
+                    {server.server_key === 'teams' && (
+                      <>
+                        <li>"Send a message to Marketing team channel"</li>
+                        <li>"List all my teams"</li>
+                        <li>"Show recent messages in General channel"</li>
+                        <li>"Upload this file to Sales team"</li>
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -265,6 +278,15 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
         onClose={() => setShowSalesforceConfig(false)}
         onConfigured={() => {
           setShowSalesforceConfig(false);
+          onConfigured?.();
+        }}
+      />
+
+      <TeamsConfigModal
+        isOpen={showTeamsConfig}
+        onClose={() => setShowTeamsConfig(false)}
+        onConfigured={() => {
+          setShowTeamsConfig(false);
           onConfigured?.();
         }}
       />
