@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Settings, CheckCircle2, AlertCircle, Code, Brain, Database, Grid, Workflow } from 'lucide-react';
 import { GmailConfigModal } from './GmailConfigModal';
 import { FilesystemConfigModal } from './FilesystemConfigModal';
 import { SlackConfigModal } from './SlackConfigModal';
 import { SalesforceConfigModal } from './SalesforceConfigModal';
 import { TeamsConfigModal } from './TeamsConfigModal';
+import { ApiKeyConfigModal } from './ApiKeyConfigModal';
 
 interface MCPConfigurationModalProps {
   isOpen: boolean;
@@ -36,7 +37,124 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
   const [showSalesforceConfig, setShowSalesforceConfig] = useState(false);
   const [showTeamsConfig, setShowTeamsConfig] = useState(false);
 
+  // API Key based tools
+  const [showApiKeyConfig, setShowApiKeyConfig] = useState(false);
+  const [apiKeyProvider, setApiKeyProvider] = useState<string>('');
+
   if (!isOpen) return null;
+
+  // Helper to get API Key modal props based on provider
+  const getApiKeyModalProps = (provider: string) => {
+    const propsMap: Record<string, any> = {
+      hubspot: {
+        providerName: 'HubSpot',
+        icon: <Database className="w-6 h-6" style={{ color: '#ff7a59' }} />,
+        brandColor: '#ff7a59',
+        description: 'Connect your HubSpot CRM',
+        keyLabel: 'HubSpot API Key',
+        keyPlaceholder: 'pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        docsUrl: 'https://developers.hubspot.com/docs/api/overview',
+        getKeyUrl: 'https://app.hubspot.com/settings/api-key',
+        features: [
+          { title: 'CRM Access', description: 'Manage contacts, companies, deals, and tickets' },
+          { title: 'Marketing Tools', description: 'Create and manage email campaigns' },
+          { title: 'Sales Pipeline', description: 'Track and update deals through your sales pipeline' },
+        ],
+        usageExamples: [
+          '"Show me all contacts created this month"',
+          '"Create a new deal for Acme Corp worth $50k"',
+          '"List all open tickets"',
+          '"Find companies in the technology industry"',
+        ],
+      },
+      openai: {
+        providerName: 'OpenAI',
+        icon: <Brain className="w-6 h-6" style={{ color: '#10a37f' }} />,
+        brandColor: '#10a37f',
+        description: 'Connect to OpenAI GPT models',
+        keyLabel: 'OpenAI API Key',
+        keyPlaceholder: 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx',
+        docsUrl: 'https://platform.openai.com/docs/api-reference',
+        getKeyUrl: 'https://platform.openai.com/api-keys',
+        features: [
+          { title: 'GPT Models', description: 'Access GPT-4, GPT-3.5, and other models' },
+          { title: 'Embeddings', description: 'Generate embeddings for text analysis' },
+          { title: 'Image Generation', description: 'Create images with DALL·E' },
+        ],
+        usageExamples: [
+          '"Generate embeddings for this text"',
+          '"Create an image of a sunset over mountains"',
+          '"Analyze sentiment of customer reviews"',
+          '"Summarize this document using GPT-4"',
+        ],
+      },
+      anthropic: {
+        providerName: 'Anthropic',
+        icon: <Code className="w-6 h-6" style={{ color: '#d97757' }} />,
+        brandColor: '#d97757',
+        description: 'Connect to Claude AI models',
+        keyLabel: 'Anthropic API Key',
+        keyPlaceholder: 'sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxx',
+        docsUrl: 'https://docs.anthropic.com/claude/reference/getting-started-with-the-api',
+        getKeyUrl: 'https://console.anthropic.com/settings/keys',
+        features: [
+          { title: 'Claude Models', description: 'Access Claude 3 Opus, Sonnet, and Haiku' },
+          { title: 'Long Context', description: 'Process up to 200K tokens of context' },
+          { title: 'Code & Analysis', description: 'Excel at coding and analytical tasks' },
+        ],
+        usageExamples: [
+          '"Analyze this codebase and suggest improvements"',
+          '"Process this 100-page document"',
+          '"Write a Python script to parse CSV files"',
+          '"Explain this complex technical concept"',
+        ],
+      },
+      airtable: {
+        providerName: 'Airtable',
+        icon: <Grid className="w-6 h-6" style={{ color: '#ffcc00' }} />,
+        brandColor: '#ffcc00',
+        description: 'Connect to your Airtable bases',
+        keyLabel: 'Airtable Personal Access Token',
+        keyPlaceholder: 'patxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        docsUrl: 'https://airtable.com/developers/web/api/introduction',
+        getKeyUrl: 'https://airtable.com/create/tokens',
+        features: [
+          { title: 'Base Access', description: 'Read and write data across your bases' },
+          { title: 'Records Management', description: 'Create, update, and delete records' },
+          { title: 'Attachments', description: 'Upload and download file attachments' },
+        ],
+        usageExamples: [
+          '"Show me all records in the Projects table"',
+          '"Create a new task in my Tasks base"',
+          '"Update the status of record rec123 to Complete"',
+          '"Find all contacts with email ending in @company.com"',
+        ],
+      },
+      linear: {
+        providerName: 'Linear',
+        icon: <Workflow className="w-6 h-6" style={{ color: '#5e6ad2' }} />,
+        brandColor: '#5e6ad2',
+        description: 'Connect to Linear project management',
+        keyLabel: 'Linear API Key',
+        keyPlaceholder: 'lin_api_xxxxxxxxxxxxxxxxxxxxxxxx',
+        docsUrl: 'https://developers.linear.app/docs',
+        getKeyUrl: 'https://linear.app/settings/api',
+        features: [
+          { title: 'Issue Management', description: 'Create, update, and track issues' },
+          { title: 'Project Tracking', description: 'Monitor project progress and milestones' },
+          { title: 'Team Collaboration', description: 'Assign tasks and manage team workflows' },
+        ],
+        usageExamples: [
+          '"Show me all open issues assigned to me"',
+          '"Create a new bug report for the login page"',
+          '"Update issue ENG-123 to In Progress"',
+          '"List all issues in the current sprint"',
+        ],
+      },
+    };
+
+    return propsMap[provider] || {};
+  };
 
   // Route to specific configuration modal based on server type
   const handleConfigure = () => {
@@ -56,6 +174,17 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
       case 'teams':
         setShowTeamsConfig(true);
         break;
+
+      // API Key based tools
+      case 'hubspot':
+      case 'openai':
+      case 'anthropic':
+      case 'airtable':
+      case 'linear':
+        setApiKeyProvider(server.server_key);
+        setShowApiKeyConfig(true);
+        break;
+
       case 'gdrive':
         // Similar to Gmail OAuth
         alert('Google Drive OAuth configuration coming soon');
@@ -290,6 +419,24 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
           onConfigured?.();
         }}
       />
+
+      {/* API Key based tools */}
+      {apiKeyProvider && (
+        <ApiKeyConfigModal
+          isOpen={showApiKeyConfig}
+          onClose={() => {
+            setShowApiKeyConfig(false);
+            setApiKeyProvider('');
+          }}
+          onConfigured={() => {
+            setShowApiKeyConfig(false);
+            setApiKeyProvider('');
+            onConfigured?.();
+          }}
+          provider={apiKeyProvider}
+          {...getApiKeyModalProps(apiKeyProvider)}
+        />
+      )}
     </>
   );
 };

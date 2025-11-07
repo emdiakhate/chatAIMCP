@@ -415,6 +415,21 @@ class ApiClient {
 
     return response.json();
   }
+
+  async configureApiKey(provider: string, apiKey: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/apikey/${provider}`, {
+      method: 'POST',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify({ api_key: apiKey }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to configure API key');
+    }
+
+    return response.json();
+  }
 }
 
 export const api = new ApiClient();
