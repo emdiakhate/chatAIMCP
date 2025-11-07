@@ -42,7 +42,7 @@ router.get('/servers', authenticateToken, async (req, res) => {
     let queryText = `
       SELECT
         id, server_key, name, description, transport_type,
-        icon, category, is_public, requires_auth, auth_type,
+        icon, category, status, is_public, requires_auth, auth_type,
         auth_provider, capabilities, setup_instructions, is_custom, args, env, scopes
       FROM mcp_servers
       WHERE is_public = 1 OR created_by = ?

@@ -8,6 +8,7 @@ interface MCPServerCardProps {
     description: string;
     icon: string;
     category: string;
+    status?: 'available' | 'beta' | 'coming_soon';
     is_public: boolean;
     requires_auth: boolean;
     auth_type?: string;
@@ -34,10 +35,20 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
       productivity: 'bg-yellow-100 text-yellow-700',
       development: 'bg-purple-100 text-purple-700',
       database: 'bg-red-100 text-red-700',
+      business: 'bg-pink-100 text-pink-700',
       search: 'bg-indigo-100 text-indigo-700',
       utility: 'bg-gray-100 text-gray-700',
     };
     return colors[category] || 'bg-gray-100 text-gray-700';
+  };
+
+  const getStatusBadge = (status?: string) => {
+    const badges: Record<string, { label: string; color: string }> = {
+      available: { label: 'Available', color: 'bg-green-100 text-green-700 border border-green-200' },
+      beta: { label: 'Beta', color: 'bg-orange-100 text-orange-700 border border-orange-200' },
+      coming_soon: { label: 'Coming Soon', color: 'bg-gray-100 text-gray-600 border border-gray-200' },
+    };
+    return badges[status || 'available'];
   };
 
   return (
@@ -47,10 +58,15 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
           <div className="text-3xl">{server.icon}</div>
           <div>
             <h3 className="font-semibold text-gray-900">{server.name}</h3>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(server.category)}`}>
                 {server.category}
               </span>
+              {server.status && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusBadge(server.status).color}`}>
+                  {getStatusBadge(server.status).label}
+                </span>
+              )}
               {server.is_custom && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
                   Custom
@@ -100,12 +116,22 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
 
       <div className="flex gap-2">
         {!isConnected ? (
-          <button
-            onClick={onConnect}
-            className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Connect
-          </button>
+          server.status === 'coming_soon' ? (
+            <button
+              disabled
+              className="flex-1 px-3 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-md cursor-not-allowed"
+              title="This tool is not yet available"
+            >
+              Coming Soon
+            </button>
+          ) : (
+            <button
+              onClick={onConnect}
+              className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Connect
+            </button>
+          )
         ) : (
           <>
             <button
