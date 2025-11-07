@@ -13,6 +13,8 @@ import googleCallbackRoutes from './routes/googleCallback.js';
 import mcpServersRoutes from './routes/mcp-servers-sqlite.js';
 import mcpConnectionsRoutes from './routes/mcp-connections-sqlite.js';
 import chatMCPRoutes from './routes/chat-mcp-sqlite.js';
+import mcpMemoryRoutes from './routes/mcp-memory-sqlite.js';
+import oauthGoogleRoutes from './routes/oauth-google.js';
 
 // Gestionnaires MCP
 import mcpClientManager from './mcp/client-manager.js';
@@ -46,7 +48,11 @@ app.use(googleCallbackRoutes);
 // === ROUTES MCP (SQLite) ===
 app.use('/api/mcp', mcpServersRoutes);
 app.use('/api/mcp', mcpConnectionsRoutes);
+app.use('/api/mcp', mcpMemoryRoutes);
 app.use('/api', chatMCPRoutes);
+
+// === ROUTES OAUTH ===
+app.use('/api/auth', oauthGoogleRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -81,7 +87,10 @@ app.get('/api/info', (req, res) => {
       auth: [
         'POST /api/auth/signup',
         'POST /api/auth/login',
-        'GET /api/auth/me'
+        'GET /api/auth/me',
+        'GET /api/auth/google (OAuth)',
+        'GET /api/auth/google/callback',
+        'GET /api/auth/google/status'
       ],
       chat: [
         'POST /api/chat',
@@ -102,11 +111,15 @@ app.get('/api/info', (req, res) => {
         'GET /api/mcp/categories',
         'GET /api/mcp/connections',
         'POST /api/mcp/connections',
+        'PATCH /api/mcp/connections/:id/config',
         'DELETE /api/mcp/connections/:id',
         'POST /api/mcp/connections/:id/test',
         'GET /api/mcp/connections/:id/tools',
         'POST /api/mcp/tools/execute',
-        'GET /api/mcp/stats'
+        'GET /api/mcp/stats',
+        'GET /api/mcp/memory/list',
+        'POST /api/mcp/memory/store',
+        'DELETE /api/mcp/memory/:id'
       ]
     }
   });

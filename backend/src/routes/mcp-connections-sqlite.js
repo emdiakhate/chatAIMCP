@@ -470,4 +470,63 @@ router.get('/stats', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/mcp/connections/:id/config
+ * Met à jour la configuration d'une connexion MCP
+ */
+router.patch('/connections/:id/config', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const { config_overrides } = req.body;
+
+    // Vérifier que la connexion appartient à l'utilisateur
+    const checkResult = query(
+      'SELECT * FROM user_mcp_connections WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Connection not found'
+      });
+    }
+
+    // Mettre à jour la configuration
+    query(`
+      UPDATE user_mcp_connections
+      SET config_overrides = ?, updated_at = datetime('now')
+      WHERE id = ? AND user_id = ?
+    `, [
+      JSON.stringify(config_overrides || {}),
+      id,
+      userId
+    ]);
+
+    // Récupérer la connexion mise à jour
+    const updatedResult = query(
+      'SELECT * FROM user_mcp_connections WHERE id = ?',
+      [id]
+    );
+
+    const connection = parseJsonFields(updatedResult.rows[0], ['config_overrides', 'credentials']);
+
+    console.log(`✅ Configuration updated for connection ${id}`);
+
+    res.json({
+      success: true,
+      connection,
+      message: 'Configuration updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error updating connection config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update connection configuration'
+    });
+  }
+});
+
 export default router;
