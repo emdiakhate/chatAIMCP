@@ -140,6 +140,41 @@ router.post('/connections', authenticateToken, async (req, res) => {
 
     const server = parseJsonFields(serverResult.rows[0], ['args', 'env', 'capabilities', 'scopes']);
 
+    // Pour les serveurs OAuth (gmail, drive, etc.), récupérer les tokens depuis integrations
+    let finalCredentials = credentials || {};
+    if (server.auth_type?.includes('oauth')) {
+      // Mapper les server_keys vers les providers dans integrations
+      const providerMap = {
+        'gmail': 'google-gmail',
+        'gdrive': 'google',
+        'gsheet': 'google',
+        'slack': 'slack',
+        'salesforce': 'salesforce',
+        'teams': 'microsoft-teams'
+      };
+
+      const integrationProvider = providerMap[server.server_key] || server.auth_provider || server.server_key;
+
+      const integrationResult = query(
+        'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
+        [req.user.userId, integrationProvider]
+      );
+
+      if (integrationResult.rows.length > 0) {
+        const integration = integrationResult.rows[0];
+        finalCredentials = {
+          ...finalCredentials,
+          accessToken: integration.access_token,
+          refreshToken: integration.refresh_token,
+          expiresAt: integration.expires_at
+        };
+        console.log(`[MCP Connection] Using OAuth tokens from integrations for ${server.name} (provider: ${integrationProvider})`);
+      } else {
+        console.warn(`[MCP Connection] No OAuth tokens found in integrations for provider: ${integrationProvider}`);
+        console.warn(`[MCP Connection] Please complete OAuth flow first for ${server.name}`);
+      }
+    }
+
     // Vérifier si une connexion existe déjà
     const existingResult = query(
       'SELECT id FROM user_mcp_connections WHERE user_id = ? AND server_id = ?',
@@ -161,7 +196,7 @@ router.post('/connections', authenticateToken, async (req, res) => {
           updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ? AND server_id = ?
       `, [
-        JSON.stringify(credentials || {}),
+        JSON.stringify(finalCredentials),
         JSON.stringify(config_overrides || {}),
         req.user.userId,
         server_id
@@ -185,7 +220,7 @@ router.post('/connections', authenticateToken, async (req, res) => {
       `, [
         req.user.userId,
         server_id,
-        JSON.stringify(credentials || {}),
+        JSON.stringify(finalCredentials),
         JSON.stringify(config_overrides || {})
       ]);
 
