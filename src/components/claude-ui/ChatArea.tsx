@@ -67,16 +67,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, selectedModel?: { provider: string; model: string }) => {
     if (!content.trim() || !conversationId) return;
 
     setIsLoading(true);
 
     try {
-      const response = await api.sendMessage(conversationId, content);
+      const response = await api.sendMessage(conversationId, content, selectedModel);
       const updatedMessages = response.messages || [];
       setMessages(updatedMessages);
-      
+
       // Recharger les infos de la conversation pour mettre à jour le titre
       await loadMessages();
     } catch (error) {

@@ -147,11 +147,16 @@ class ApiClient {
     return response.json();
   }
 
-  async sendMessage(conversationId: number, message: string) {
+  async sendMessage(conversationId: number, message: string, selectedModel?: { provider: string; model: string }) {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
       headers: this.getAuthHeader(),
-      body: JSON.stringify({ conversationId, message }),
+      body: JSON.stringify({
+        conversationId,
+        message,
+        provider: selectedModel?.provider,
+        model: selectedModel?.model
+      }),
     });
 
     if (!response.ok) {
@@ -479,6 +484,117 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to configure API key');
+    }
+
+    return response.json();
+  }
+
+  // === LLM METHODS ===
+
+  async getLLMModels() {
+    const response = await fetch(`${API_BASE_URL}/llm/models`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get LLM models');
+    }
+
+    return response.json();
+  }
+
+  async getLLMPreferences() {
+    const response = await fetch(`${API_BASE_URL}/llm/preferences`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get LLM preferences');
+    }
+
+    return response.json();
+  }
+
+  async updateLLMPreferences(provider: string, model: string, settings?: any) {
+    const response = await fetch(`${API_BASE_URL}/llm/preferences`, {
+      method: 'PUT',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify({ provider, model, settings }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update LLM preferences');
+    }
+
+    return response.json();
+  }
+
+  async testLLMModel(provider: string, model: string, message?: string) {
+    const response = await fetch(`${API_BASE_URL}/llm/test`, {
+      method: 'POST',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify({ provider, model, message }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to test LLM model');
+    }
+
+    return response.json();
+  }
+
+  async getLLMUsageStats(period: '24h' | '7d' | '30d' = '30d') {
+    const response = await fetch(`${API_BASE_URL}/llm/usage-stats?period=${period}`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get LLM usage stats');
+    }
+
+    return response.json();
+  }
+
+  async getLLMCostBreakdown(period: '24h' | '7d' | '30d' = '30d') {
+    const response = await fetch(`${API_BASE_URL}/llm/cost-breakdown?period=${period}`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get LLM cost breakdown');
+    }
+
+    return response.json();
+  }
+
+  async trackLLMUsage(data: {
+    conversationId?: number;
+    messageId?: number;
+    provider: string;
+    model: string;
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    };
+    cost: {
+      input: number;
+      output: number;
+      total: number;
+      currency?: string;
+    };
+  }) {
+    const response = await fetch(`${API_BASE_URL}/llm/track-usage`, {
+      method: 'POST',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to track LLM usage');
     }
 
     return response.json();

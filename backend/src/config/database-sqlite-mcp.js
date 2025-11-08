@@ -123,6 +123,31 @@ export const initDatabase = () => {
     console.log('ℹ️  Migration integrations:', e.message);
   }
 
+  // === TABLES LLM USAGE ===
+
+  // Table des statistiques d'utilisation LLM
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS llm_usage_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      conversation_id INTEGER,
+      message_id INTEGER,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      input_tokens INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      input_cost REAL DEFAULT 0,
+      output_cost REAL DEFAULT 0,
+      total_cost REAL DEFAULT 0,
+      currency TEXT DEFAULT 'USD',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+    );
+  `);
+
   // === TABLES MCP ===
 
   // Table des serveurs MCP disponibles
@@ -228,6 +253,13 @@ export const initDatabase = () => {
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_integrations_user_id ON integrations(user_id);');
+
+  // Index LLM usage
+  db.exec('CREATE INDEX IF NOT EXISTS idx_llm_usage_stats_user_id ON llm_usage_stats(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_llm_usage_stats_conversation_id ON llm_usage_stats(conversation_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_llm_usage_stats_created_at ON llm_usage_stats(created_at);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_llm_usage_stats_provider ON llm_usage_stats(provider);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_llm_usage_stats_model ON llm_usage_stats(model);');
 
   // Nouveaux index MCP
   db.exec('CREATE INDEX IF NOT EXISTS idx_mcp_servers_category ON mcp_servers(category);');
