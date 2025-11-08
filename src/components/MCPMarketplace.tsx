@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { MCPServerCard } from './MCPServerCard';
 import { X, Search, Loader2 } from 'lucide-react';
+import { ApiKeyConfigModal } from './ApiKeyConfigModal';
+import { GmailConfigModal } from './GmailConfigModal';
+import { SlackConfigModal } from './SlackConfigModal';
+import { SalesforceConfigModal } from './SalesforceConfigModal';
+import { TeamsConfigModal } from './TeamsConfigModal';
 
 interface MCPMarketplaceProps {
   isOpen: boolean;
@@ -23,6 +28,12 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [selectedServer, setSelectedServer] = useState<any>(null);
   const [connecting, setConnecting] = useState(false);
+  const [showApiKeyConfig, setShowApiKeyConfig] = useState(false);
+  const [apiKeyProvider, setApiKeyProvider] = useState<string>('');
+  const [showGmailConfig, setShowGmailConfig] = useState(false);
+  const [showSlackConfig, setShowSlackConfig] = useState(false);
+  const [showSalesforceConfig, setShowSalesforceConfig] = useState(false);
+  const [showTeamsConfig, setShowTeamsConfig] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -75,11 +86,140 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
   const handleConfirmConnect = async () => {
     if (!selectedServer) return;
 
+    // Si le serveur nécessite une API key, ouvrir le modal de configuration
+    if (selectedServer.auth_type === 'api_key' && selectedServer.requires_auth) {
+      setShowConnectionModal(false);
+      setApiKeyProvider(selectedServer.server_key);
+      setShowApiKeyConfig(true);
+      return;
+    }
+
+    // Si le serveur nécessite OAuth, ouvrir le modal OAuth approprié
+    if (selectedServer.auth_type === 'oauth2' && selectedServer.requires_auth) {
+      setShowConnectionModal(false);
+      switch (selectedServer.server_key) {
+        case 'gmail':
+          setShowGmailConfig(true);
+          return;
+        case 'gdrive':
+          // Google Drive utilise le même OAuth que Gmail mais avec un scope différent
+          setShowGmailConfig(true);
+          return;
+        case 'slack':
+          setShowSlackConfig(true);
+          return;
+        case 'salesforce':
+          setShowSalesforceConfig(true);
+          return;
+        case 'teams':
+          setShowTeamsConfig(true);
+          return;
+        default:
+          alert(`OAuth configuration for ${selectedServer.name} is not yet implemented. Please configure it manually.`);
+          return;
+      }
+    }
+
+    // Pour les outils sans authentification, créer directement la connexion
     try {
       setConnecting(true);
       await api.createMCPConnection(selectedServer.id);
       await loadData();
       setShowConnectionModal(false);
+      setSelectedServer(null);
+      onConnectionCreated?.();
+      alert(`Successfully connected to ${selectedServer.name}!`);
+    } catch (error: any) {
+      alert('Failed to connect: ' + error.message);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  // Helper pour obtenir les props du modal API Key
+  const getApiKeyModalProps = (provider: string) => {
+    const propsMap: Record<string, any> = {
+      hubspot: {
+        providerName: 'HubSpot',
+        brandColor: '#ff7a59',
+        description: 'Connect your HubSpot CRM',
+        keyLabel: 'HubSpot API Key',
+        keyPlaceholder: 'pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        docsUrl: 'https://developers.hubspot.com/docs/api/overview',
+        getKeyUrl: 'https://app.hubspot.com/settings/api-key',
+      },
+      openai: {
+        providerName: 'OpenAI',
+        brandColor: '#10a37f',
+        description: 'Connect to OpenAI GPT models',
+        keyLabel: 'OpenAI API Key',
+        keyPlaceholder: 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx',
+        docsUrl: 'https://platform.openai.com/docs/api-reference',
+        getKeyUrl: 'https://platform.openai.com/api-keys',
+      },
+      anthropic: {
+        providerName: 'Anthropic',
+        brandColor: '#d97757',
+        description: 'Connect to Claude AI models',
+        keyLabel: 'Anthropic API Key',
+        keyPlaceholder: 'sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxx',
+        docsUrl: 'https://docs.anthropic.com/claude/reference/getting-started-with-the-api',
+        getKeyUrl: 'https://console.anthropic.com/settings/keys',
+      },
+      airtable: {
+        providerName: 'Airtable',
+        brandColor: '#18bfff',
+        description: 'Connect to your Airtable bases',
+        keyLabel: 'Airtable Personal Access Token',
+        keyPlaceholder: 'pat...',
+        docsUrl: 'https://airtable.com/developers/web/api/introduction',
+        getKeyUrl: 'https://airtable.com/create/tokens',
+      },
+      linear: {
+        providerName: 'Linear',
+        brandColor: '#5e6ad2',
+        description: 'Connect to Linear project management',
+        keyLabel: 'Linear API Key',
+        keyPlaceholder: 'lin_api_...',
+        docsUrl: 'https://developers.linear.app/docs',
+        getKeyUrl: 'https://linear.app/settings/api',
+      },
+    };
+    return propsMap[provider] || {};
+  };
+
+  const handleApiKeyConfigured = async () => {
+    if (!selectedServer) return;
+
+    try {
+      setConnecting(true);
+      // L'API key a été configurée via ApiKeyConfigModal, maintenant créer la connexion
+      await api.createMCPConnection(selectedServer.id);
+      await loadData();
+      setShowApiKeyConfig(false);
+      setApiKeyProvider('');
+      setSelectedServer(null);
+      onConnectionCreated?.();
+      alert(`Successfully connected to ${selectedServer.name}!`);
+    } catch (error: any) {
+      alert('Failed to connect: ' + error.message);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleOAuthConfigured = async () => {
+    if (!selectedServer) return;
+
+    try {
+      setConnecting(true);
+      // L'OAuth a été complété, maintenant créer la connexion MCP
+      await api.createMCPConnection(selectedServer.id);
+      await loadData();
+      setShowGmailConfig(false);
+      setShowSlackConfig(false);
+      setShowSalesforceConfig(false);
+      setShowTeamsConfig(false);
       setSelectedServer(null);
       onConnectionCreated?.();
       alert(`Successfully connected to ${selectedServer.name}!`);
@@ -267,8 +407,11 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                       />
                     </svg>
                     <div className="text-sm text-yellow-800">
-                      This tool requires authentication via {selectedServer.auth_type || 'OAuth2'}.
-                      You'll be redirected to authorize access.
+                      {selectedServer.auth_type === 'api_key' ? (
+                        <>This tool requires an API key. You'll be asked to enter it in the next step.</>
+                      ) : (
+                        <>This tool requires authentication via {selectedServer.auth_type || 'OAuth2'}. You'll be redirected to authorize access.</>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -304,6 +447,77 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* API Key Configuration Modal */}
+      {apiKeyProvider && selectedServer && (
+        <ApiKeyConfigModal
+          isOpen={showApiKeyConfig}
+          onClose={() => {
+            setShowApiKeyConfig(false);
+            setApiKeyProvider('');
+            setSelectedServer(null);
+          }}
+          onConfigured={handleApiKeyConfigured}
+          provider={apiKeyProvider}
+          {...getApiKeyModalProps(apiKeyProvider)}
+        />
+      )}
+
+      {/* OAuth Configuration Modals */}
+      {selectedServer && selectedServer.server_key === 'gmail' && (
+        <GmailConfigModal
+          isOpen={showGmailConfig}
+          onClose={() => {
+            setShowGmailConfig(false);
+            setSelectedServer(null);
+          }}
+          onConfigured={handleOAuthConfigured}
+        />
+      )}
+
+      {selectedServer && selectedServer.server_key === 'gdrive' && (
+        <GmailConfigModal
+          isOpen={showGmailConfig}
+          onClose={() => {
+            setShowGmailConfig(false);
+            setSelectedServer(null);
+          }}
+          onConfigured={handleOAuthConfigured}
+        />
+      )}
+
+      {selectedServer && selectedServer.server_key === 'slack' && (
+        <SlackConfigModal
+          isOpen={showSlackConfig}
+          onClose={() => {
+            setShowSlackConfig(false);
+            setSelectedServer(null);
+          }}
+          onConfigured={handleOAuthConfigured}
+        />
+      )}
+
+      {selectedServer && selectedServer.server_key === 'salesforce' && (
+        <SalesforceConfigModal
+          isOpen={showSalesforceConfig}
+          onClose={() => {
+            setShowSalesforceConfig(false);
+            setSelectedServer(null);
+          }}
+          onConfigured={handleOAuthConfigured}
+        />
+      )}
+
+      {selectedServer && selectedServer.server_key === 'teams' && (
+        <TeamsConfigModal
+          isOpen={showTeamsConfig}
+          onClose={() => {
+            setShowTeamsConfig(false);
+            setSelectedServer(null);
+          }}
+          onConfigured={handleOAuthConfigured}
+        />
       )}
     </>
   );

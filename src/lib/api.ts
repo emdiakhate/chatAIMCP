@@ -60,7 +60,9 @@ class ApiClient {
       throw new Error('Failed to get conversations');
     }
 
-    return response.json();
+    const data = await response.json();
+    // L'API retourne { conversations: [...] }, on extrait le tableau
+    return data.conversations || [];
   }
 
   async createConversation(title?: string) {
@@ -74,7 +76,9 @@ class ApiClient {
       throw new Error('Failed to create conversation');
     }
 
-    return response.json();
+    const data = await response.json();
+    // L'API retourne { conversation: {...} }, on extrait l'objet
+    return data.conversation || data;
   }
 
   async getConversation(id: number) {
@@ -86,7 +90,12 @@ class ApiClient {
       throw new Error('Failed to get conversation');
     }
 
-    return response.json();
+    const data = await response.json();
+    // L'API retourne { conversation: {...}, messages: [...] }
+    return {
+      conversation: data.conversation || data,
+      messages: data.messages || []
+    };
   }
 
   async getMessages(conversationId: number) {
@@ -101,6 +110,28 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  async updateConversation(id: number, title: string) {
+    const response = await fetch(`${API_BASE_URL}/conversations/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify({ title }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to update conversation';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || error.message || errorMessage;
+      } catch (e) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.conversation || data;
   }
 
   async deleteConversation(id: number) {
@@ -269,9 +300,17 @@ class ApiClient {
   }
 
   async createMCPConnection(serverId: number, credentials?: any, configOverrides?: any) {
+    const headers = this.getAuthHeader();
+    const token = localStorage.getItem('token');
+    
+    // Debug: vérifier que le token existe
+    if (!token) {
+      throw new Error('No authentication token found. Please log in again.');
+    }
+
     const response = await fetch(`${API_BASE_URL}/mcp/connections`, {
       method: 'POST',
-      headers: this.getAuthHeader(),
+      headers,
       body: JSON.stringify({
         server_id: serverId,
         credentials,
@@ -280,8 +319,8 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create MCP connection');
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `Failed to create MCP connection (${response.status})`);
     }
 
     return response.json();

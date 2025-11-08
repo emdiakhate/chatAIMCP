@@ -107,19 +107,42 @@ export const ChatPage: React.FC = () => {
   };
 
   const sendMessage = async (content: string) => {
-    if (!currentConversation) {
-      await createNewConversation();
-      return;
+    let conversation = currentConversation;
+    
+    // Si pas de conversation, en créer une nouvelle
+    if (!conversation) {
+      try {
+        const { conversation: newConv } = await api.createConversation('New Conversation');
+        setConversations([newConv, ...conversations]);
+        setCurrentConversation(newConv);
+        conversation = newConv;
+        setMessages([]);
+      } catch (error: any) {
+        console.error('Failed to create conversation:', error);
+        alert(error.message || 'Failed to create conversation');
+        return;
+      }
     }
 
+    // Ajouter le message utilisateur immédiatement
+    const userMessage: Message = {
+      id: Date.now(), // ID temporaire
+      role: 'user',
+      content: content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages([...messages, userMessage]);
     setSending(true);
+
     try {
-      const response = await api.sendMessage(currentConversation.id, content);
+      const response = await api.sendMessage(conversation.id, content);
       const updatedMessages = response.messages || [];
       setMessages(updatedMessages);
       await loadConversations();
     } catch (error: any) {
       console.error('Failed to send message:', error);
+      // En cas d'erreur, retirer le message utilisateur temporaire
+      setMessages(messages);
       alert(error.message || 'Failed to send message');
     } finally {
       setSending(false);

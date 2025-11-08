@@ -81,11 +81,12 @@ router.post('/apikey/:provider', authenticateToken, async (req, res) => {
       console.log(`[API Key Config] ${provider} integration updated`);
     } else {
       // Create new integration
+      // Pour les API keys, scopes est NULL (pas de scopes OAuth)
       query(
         `INSERT INTO integrations
-         (user_id, provider, access_token)
-         VALUES (?, ?, ?)`,
-        [userId, provider, encryptedKey]
+         (user_id, provider, access_token, scopes)
+         VALUES (?, ?, ?, ?)`,
+        [userId, provider, encryptedKey, null]
       );
       console.log(`[API Key Config] ${provider} integration created`);
     }

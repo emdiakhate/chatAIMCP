@@ -29,8 +29,17 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
 
+      // Utiliser l'URL complète du backend pour éviter l'interception par React Router
+      const backendUrl = 'http://localhost:3001';
+      const token = localStorage.getItem('token');
+      
+      // Passer le token dans l'URL car window.open() ne peut pas envoyer de headers
+      const oauthUrl = token 
+        ? `${backendUrl}/api/auth/google?scope=gmail&token=${encodeURIComponent(token)}`
+        : `${backendUrl}/api/auth/google?scope=gmail`;
+      
       const popup = window.open(
-        '/api/auth/google?scope=gmail',
+        oauthUrl,
         'GoogleAuth',
         `width=${width},height=${height},left=${left},top=${top}`
       );

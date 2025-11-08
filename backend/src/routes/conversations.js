@@ -65,6 +65,40 @@ router.get('/conversations/:id', authenticateToken, (req, res) => {
   }
 });
 
+router.put('/conversations/:id', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    console.log(`[Update Conversation] ID: ${id}, Title: ${title}, User: ${req.user.userId}`);
+
+    if (!title || title.trim() === '') {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const result = db.prepare(
+      'UPDATE conversations SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?'
+    ).run(title.trim(), id, req.user.userId);
+
+    console.log(`[Update Conversation] Changes: ${result.changes}`);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    const conversation = db.prepare(
+      'SELECT * FROM conversations WHERE id = ?'
+    ).get(id);
+
+    console.log(`[Update Conversation] Success: ${conversation.title}`);
+
+    res.json({ conversation });
+  } catch (error) {
+    console.error('Update conversation error:', error);
+    res.status(500).json({ error: 'Failed to update conversation', details: error.message });
+  }
+});
+
 router.delete('/conversations/:id', authenticateToken, (req, res) => {
   try {
     const { id } = req.params;

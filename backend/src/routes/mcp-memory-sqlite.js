@@ -32,10 +32,6 @@ router.get('/memory/list', authenticateToken, async (req, res) => {
 
     const connection = connectionResult.rows[0];
 
-    // Créer/récupérer le client MCP si nécessaire
-    let client = mcpClientManager.getClient(userId, connection.server_id);
-
-    if (!client) {
       // Récupérer les infos du serveur
       const serverResult = query('SELECT * FROM mcp_servers WHERE id = ?', [connection.server_id]);
       const server = serverResult.rows[0];
@@ -47,46 +43,85 @@ router.get('/memory/list', authenticateToken, async (req, res) => {
         });
       }
 
-      // Créer le client MCP
+    // Créer/récupérer le client MCP
       const serverConfig = {
         transport_type: server.transport_type,
         command: server.command,
         args: server.args ? JSON.parse(server.args) : [],
-        env: server.env ? JSON.parse(server.env) : {}
-      };
+      env: server.env ? JSON.parse(server.env) : {},
+      name: server.name
+    };
 
-      client = await mcpClientManager.createClient(userId, connection.server_id, serverConfig);
-    }
+    const client = await mcpClientManager.getOrCreateClient(userId, connection.server_id, serverConfig);
 
-    // Appeler l'outil "search_memories" du Memory MCP
-    // Le Memory MCP n'a pas de "list all", on utilise search avec query vide
-    const result = await mcpClientManager.executeTool(
+    // Le Memory MCP est en fait un Knowledge Graph MCP
+    // Utiliser read_graph pour récupérer tous les souvenirs
+    let memories = [];
+    try {
+      // Utiliser read_graph directement pour obtenir toutes les entités
+      const graphResult = await mcpClientManager.callTool(
       userId,
       connection.server_id,
-      'search_memories',
-      { query: '' } // Query vide pour tout récupérer
-    );
+        serverConfig,
+        'read_graph',
+        {}
+      );
 
-    // Parser le résultat
-    let memories = [];
-    if (result.success && result.content && result.content.length > 0) {
-      const content = result.content[0];
+      // Parser le résultat du Knowledge Graph
+      if (graphResult && graphResult.content && graphResult.content.length > 0) {
+        const content = graphResult.content[0];
       if (content.type === 'text') {
-        // Parser le texte retourné par Memory MCP
-        // Format attendu: liste de souvenirs
-        try {
-          // Le Memory MCP retourne généralement du texte, on va le structurer
-          const lines = content.text.split('\n').filter(line => line.trim());
+          try {
+            // Parser le JSON retourné par read_graph
+            const graphData = JSON.parse(content.text);
+            if (graphData.entities && Array.isArray(graphData.entities)) {
+              // Extraire les entités avec leurs observations
+              memories = graphData.entities.map((entity, index) => {
+                // Extraire le contenu depuis les observations ou la description
+                let memoryContent = entity.description || entity.name || '';
+                if (entity.observations && entity.observations.length > 0) {
+                  memoryContent = entity.observations.map((obs) => obs.description || obs).join('\n');
+                }
+                
+                return {
+                  id: `mem-${index}-${entity.name || index}`,
+                  content: memoryContent,
+                  createdAt: new Date().toISOString(),
+                  tags: entity.name ? [entity.name] : []
+                };
+              });
+            }
+          } catch (parseError) {
+            console.error('Error parsing graph JSON:', parseError);
+            // Fallback: essayer search_nodes
+            try {
+              const searchResult = await mcpClientManager.callTool(
+                userId,
+                connection.server_id,
+                serverConfig,
+                'search_nodes',
+                { query: '' }
+              );
+              if (searchResult && searchResult.content && searchResult.content.length > 0) {
+                const searchContent = searchResult.content[0];
+                if (searchContent.type === 'text') {
+                  const lines = searchContent.text.split('\n').filter((line) => line.trim());
           memories = lines.map((line, index) => ({
             id: `mem-${index}`,
             content: line,
             createdAt: new Date().toISOString(),
             tags: []
           }));
-        } catch (e) {
-          console.error('Error parsing memories:', e);
+                }
+              }
+            } catch (searchError) {
+              console.error('Error calling search_nodes:', searchError);
+            }
+          }
         }
       }
+    } catch (error) {
+      console.error('Error calling read_graph:', error);
     }
 
     res.json({
@@ -137,43 +172,136 @@ router.post('/memory/store', authenticateToken, async (req, res) => {
 
     const connection = connectionResult.rows[0];
 
-    // Créer/récupérer le client MCP
-    let client = mcpClientManager.getClient(userId, connection.server_id);
-
-    if (!client) {
+    // Récupérer les infos du serveur
       const serverResult = query('SELECT * FROM mcp_servers WHERE id = ?', [connection.server_id]);
       const server = serverResult.rows[0];
 
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        error: 'Memory MCP server not found'
+      });
+    }
+
+    // Créer/récupérer le client MCP
       const serverConfig = {
         transport_type: server.transport_type,
         command: server.command,
         args: server.args ? JSON.parse(server.args) : [],
-        env: server.env ? JSON.parse(server.env) : {}
+      env: server.env ? JSON.parse(server.env) : {},
+      name: server.name
       };
 
-      client = await mcpClientManager.createClient(userId, connection.server_id, serverConfig);
-    }
+    const client = await mcpClientManager.getOrCreateClient(userId, connection.server_id, serverConfig);
 
+    // Le Memory MCP est en fait un Knowledge Graph MCP
+    // Utiliser add_observations pour stocker un souvenir
     // Préparer le contenu avec tags si fournis
     let memoryContent = content;
     if (tags && tags.length > 0) {
       memoryContent = `[Tags: ${tags.join(', ')}] ${content}`;
     }
 
-    // Appeler l'outil "store_memory" du Memory MCP
-    const result = await mcpClientManager.executeTool(
+    // Créer d'abord une entité pour le souvenir
+    const entityName = tags && tags.length > 0 ? tags[0] : `memory-${Date.now()}`;
+    
+    console.log(`[Memory] Creating entity with name: ${entityName}`);
+    console.log(`[Memory] Content: ${memoryContent.substring(0, 50)}...`);
+    
+    try {
+      // Créer une entité pour ce souvenir
+      const createResult = await mcpClientManager.callTool(
       userId,
       connection.server_id,
-      'store_memory',
-      {
-        content: memoryContent
-      }
-    );
+        serverConfig,
+        'create_entities',
+        {
+          entities: [{
+            name: entityName,
+            description: memoryContent
+          }]
+        }
+      );
 
-    if (!result.success) {
+      console.log(`[Memory] Create entities result:`, JSON.stringify(createResult, null, 2));
+
+      // Vérifier que l'entité a été créée
+      if (!createResult || !createResult.content) {
+        throw new Error('Failed to create entity: No result from create_entities');
+      }
+
+      // Attendre un peu pour que l'entité soit disponible
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Ajouter une observation (le contenu du souvenir)
+      // Essayer différents formats possibles pour add_observations
+      console.log(`[Memory] Adding observation to entity: ${entityName}`);
+      
+      // Format 1: Essayer avec observations comme tableau de chaînes
+      let result;
+      try {
+        result = await mcpClientManager.callTool(
+          userId,
+          connection.server_id,
+          serverConfig,
+          'add_observations',
+          {
+            entity_name: entityName,
+            observations: [memoryContent]
+          }
+        );
+      } catch (error1) {
+        console.log(`[Memory] Format 1 failed, trying format 2:`, error1.message);
+        // Format 2: Essayer avec observation (singulier)
+        try {
+          result = await mcpClientManager.callTool(
+            userId,
+            connection.server_id,
+            serverConfig,
+            'add_observations',
+            {
+              entity_name: entityName,
+              observation: memoryContent
+            }
+          );
+        } catch (error2) {
+          console.log(`[Memory] Format 2 failed, trying format 3:`, error2.message);
+          // Format 3: Essayer avec le format original mais en vérifiant entity_name
+          if (!entityName || entityName === 'undefined') {
+            throw new Error(`Invalid entity name: ${entityName}`);
+          }
+          result = await mcpClientManager.callTool(
+            userId,
+            connection.server_id,
+            serverConfig,
+            'add_observations',
+            {
+              entity_name: String(entityName), // S'assurer que c'est une chaîne
+              observations: [{
+                description: memoryContent
+              }]
+            }
+          );
+        }
+      }
+
+      console.log(`[Memory] Add observations result:`, JSON.stringify(result, null, 2));
+
+      if (!result) {
+        throw new Error('Failed to store memory: No result from add_observations');
+      }
+    } catch (error) {
+      console.error('Error storing memory:', error);
+      console.error('Error details:', {
+        entityName,
+        hasTags: !!tags,
+        tagsLength: tags?.length || 0,
+        errorMessage: error.message,
+        errorCode: error.code
+      });
       return res.status(500).json({
         success: false,
-        error: result.error || 'Failed to store memory'
+        error: error.message || 'Failed to store memory'
       });
     }
 
@@ -185,11 +313,11 @@ router.post('/memory/store', authenticateToken, async (req, res) => {
     `, [
       userId,
       connection.server_id,
-      'store_memory',
-      JSON.stringify({ content: memoryContent }),
-      JSON.stringify(result),
-      result.success ? 1 : 0,
-      result.executionTime || 0
+      'add_observations',
+      JSON.stringify({ content: memoryContent, entity_name: entityName }),
+      JSON.stringify({ success: true }),
+      1,
+      0
     ]);
 
     res.json({

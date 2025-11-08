@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { X, Settings, Loader2 } from 'lucide-react';
+import { X, Settings, Loader2, Brain } from 'lucide-react';
 import { FilesystemConfigModal } from './FilesystemConfigModal';
+import { MemoryPanel } from './MemoryPanel';
 
 interface MCPToolsPanelProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
   const [loadingTools, setLoadingTools] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configConnection, setConfigConnection] = useState<any>(null);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -232,6 +234,15 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                         Configurer
                       </button>
                     )}
+                    {selectedConnection.server_key === 'memory' && (
+                      <button
+                        onClick={() => setShowMemoryPanel(true)}
+                        className="px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
+                      >
+                        <Brain className="w-4 h-4" />
+                        Memory Manager
+                      </button>
+                    )}
                     <button
                       onClick={() => handleTestConnection(selectedConnection.id)}
                       className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
@@ -330,6 +341,12 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
           onConfigUpdated={handleConfigUpdated}
         />
       )}
+
+      {/* Memory Panel */}
+      <MemoryPanel
+        isOpen={showMemoryPanel}
+        onClose={() => setShowMemoryPanel(false)}
+      />
     </div>
   );
 };

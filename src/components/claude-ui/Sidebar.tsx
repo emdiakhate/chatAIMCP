@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { MessageSquare, Plus, Search, Settings, LogOut } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { MessageSquare, Plus, Settings, LogOut, Edit2, Check, X } from 'lucide-react';
 import { api } from '../../lib/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface Conversation {
   id: number;
@@ -16,8 +16,17 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>('');
+  const editInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const { conversationId } = useParams<{ conversationId?: string }>();
+  
+  // Détecter la conversation active depuis l'URL
+  const currentConversationId = conversationId ? parseInt(conversationId) : null;
+
+  // S'assurer que conversations est toujours un tableau
+  const safeConversations = Array.isArray(conversations) ? conversations : [];
 
   useEffect(() => {
     if (isOpen) {
@@ -28,16 +37,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const loadConversations = async () => {
     try {
       const response = await api.getConversations();
-      setConversations(response);
+      // S'assurer que response est un tableau
+      setConversations(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load conversations:', error);
+      setConversations([]); // En cas d'erreur, initialiser avec un tableau vide
     }
   };
 
   const handleNewChat = async () => {
     try {
       const response = await api.createConversation();
-      setCurrentConversationId(response.id);
       navigate(`/chat/${response.id}`);
       await loadConversations();
     } catch (error) {
@@ -48,6 +58,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const handleStartEdit = (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(conv.id);
+    setEditingTitle(conv.title || '');
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }, 0);
+  };
+
+  const handleSaveEdit = async (id: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    if (!editingTitle.trim()) {
+      setEditingId(null);
+      return;
+    }
+
+    try {
+      await api.updateConversation(id, editingTitle.trim());
+      await loadConversations();
+      setEditingId(null);
+      setEditingTitle('');
+      
+      // Déclencher un événement pour mettre à jour ChatArea
+      window.dispatchEvent(new CustomEvent('conversationUpdated'));
+    } catch (error) {
+      console.error('Failed to update conversation:', error);
+      alert('Failed to rename conversation');
+    }
+  };
+
+  const handleCancelEdit = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, id: number) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit(id);
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -71,7 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       Older: [],
     };
 
-    conversations.forEach((conv) => {
+    // Utiliser safeConversations qui est toujours un tableau
+    safeConversations.forEach((conv) => {
       const date = new Date(conv.updated_at);
       const now = new Date();
       const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
@@ -113,13 +170,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               </h3>
               <div className="space-y-0.5 mt-1">
                 {convs.map((conv) => (
-                  <button
+                  <div
                     key={conv.id}
-                    onClick={() => {
-                      setCurrentConversationId(conv.id);
-                      navigate(`/chat/${conv.id}`);
-                    }}
-                    className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg transition-colors text-left group ${
+                    className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg transition-colors group ${
                       currentConversationId === conv.id
                         ? 'bg-[#F5F5F0]'
                         : 'hover:bg-gray-50'
@@ -127,21 +180,68 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                   >
                     <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {conv.title || 'Untitled Chat'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {formatDate(conv.updated_at)}
-                      </p>
+                      {editingId === conv.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, conv.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 text-sm font-medium text-gray-900 bg-white border border-[#CC785C] rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#CC785C]"
+                            placeholder="Conversation title"
+                          />
+                          <button
+                            onClick={(e) => handleSaveEdit(conv.id, e)}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4 text-green-600" />
+                          </button>
+                          <button
+                            onClick={(e) => handleCancelEdit(e)}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => {
+                                navigate(`/chat/${conv.id}`);
+                              }}
+                              className="flex-1 text-left min-w-0"
+                            >
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {conv.title || 'Untitled Chat'}
+                              </p>
+                            </button>
+                            <button
+                              onClick={(e) => handleStartEdit(conv, e)}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0"
+                              title="Rename"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-gray-500" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {formatDate(conv.updated_at)}
+                          </p>
+                        </>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
           );
         })}
 
-        {conversations.length === 0 && (
+        {safeConversations.length === 0 && (
           <div className="px-3 py-8 text-center">
             <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-500">No conversations yet</p>
@@ -153,7 +253,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       {/* Footer */}
       <div className="p-3 border-t border-gray-200 space-y-1">
         <button
-          onClick={() => navigate('/settings')}
+          onClick={() => {
+            // Ouvrir les intégrations via un événement personnalisé
+            window.dispatchEvent(new CustomEvent('openIntegrations'));
+          }}
           className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
         >
           <Settings className="w-4 h-4" />

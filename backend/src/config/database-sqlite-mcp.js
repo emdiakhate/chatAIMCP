@@ -65,12 +65,60 @@ export const initDatabase = () => {
       access_token TEXT NOT NULL,
       refresh_token TEXT,
       expires_at TEXT,
-      scopes TEXT NOT NULL,
+      scopes TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_id, provider),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+  
+  // Migration: rendre scopes nullable et supprimer la contrainte CHECK sur provider
+  try {
+    // Vérifier si la table existe avec l'ancienne structure
+    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='integrations'").get();
+    if (tableExists) {
+      // Vérifier la structure actuelle
+      const tableInfo = db.prepare("PRAGMA table_info(integrations)").all();
+      const scopesColumn = tableInfo.find(col => col.name === 'scopes');
+      
+      // Si scopes est NOT NULL, on doit migrer
+      if (scopesColumn && scopesColumn.notnull === 1) {
+        console.log('🔄 Migration: Mise à jour de la table integrations pour supporter les API keys...');
+        
+        // Créer une nouvelle table sans NOT NULL sur scopes et sans CHECK sur provider
+        db.exec(`
+          CREATE TABLE integrations_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            provider TEXT NOT NULL,
+            access_token TEXT NOT NULL,
+            refresh_token TEXT,
+            expires_at TEXT,
+            scopes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, provider),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          );
+        `);
+        
+        // Copier les données existantes (scopes peut être NULL maintenant)
+        db.exec(`INSERT INTO integrations_new (id, user_id, provider, access_token, refresh_token, expires_at, scopes, created_at)
+                 SELECT id, user_id, provider, access_token, refresh_token, expires_at, scopes, created_at FROM integrations;`);
+        
+        // Remplacer l'ancienne table
+        db.exec(`DROP TABLE integrations;`);
+        db.exec(`ALTER TABLE integrations_new RENAME TO integrations;`);
+        
+        // Recréer l'index
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_integrations_user_id ON integrations(user_id);`);
+        
+        console.log('✅ Migration integrations terminée');
+      }
+    }
+  } catch (e) {
+    // La migration a échoué, mais ce n'est pas grave si la table est déjà correcte
+    console.log('ℹ️  Migration integrations:', e.message);
+  }
 
   // === TABLES MCP ===
 
@@ -188,6 +236,22 @@ export const initDatabase = () => {
   db.exec('CREATE INDEX IF NOT EXISTS idx_mcp_tool_calls_created_at ON mcp_tool_calls(created_at);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_organization_members_user_id ON organization_members(user_id);');
 
+  // Migration : Ajouter la colonne status si elle n'existe pas
+  try {
+    db.prepare('SELECT status FROM mcp_servers LIMIT 1').get();
+  } catch (e) {
+    if (e.code === 'SQLITE_ERROR' && e.message.includes('no such column: status')) {
+      console.log('🔄 Migration: Ajout de la colonne status à mcp_servers...');
+      db.exec(`
+        ALTER TABLE mcp_servers 
+        ADD COLUMN status TEXT DEFAULT 'available' CHECK(status IN ('available', 'beta', 'coming_soon'))
+      `);
+      // Mettre à jour les serveurs existants
+      db.exec(`UPDATE mcp_servers SET status = 'available' WHERE status IS NULL`);
+      console.log('✅ Colonne status ajoutée');
+    }
+  }
+
   console.log('✅ SQLite database initialized successfully');
   console.log('✅ MCP tables created');
 };
@@ -199,8 +263,8 @@ export const seedMCPServers = () => {
   // Vérifier si des serveurs existent déjà
   const existingServers = db.prepare('SELECT COUNT(*) as count FROM mcp_servers').get();
   if (existingServers.count > 0) {
-    console.log('ℹ️  Serveurs MCP déjà présents, skip seed');
-    return;
+    console.log(`ℹ️  Serveurs MCP déjà présents (${existingServers.count}), ajout des serveurs manquants...`);
+    // Continuer pour ajouter les serveurs manquants
   }
 
   const servers = [
@@ -401,8 +465,8 @@ export const seedMCPServers = () => {
       name: 'Linear',
       description: 'Gestion de projet moderne - issues, projets, roadmaps',
       transport_type: 'stdio',
-      command: 'npx',
-      args: JSON.stringify(['-y', '@modelcontextprotocol/server-linear']),
+      command: 'node',
+      args: JSON.stringify(['./mcp-servers/linear/index.js']),
       env: JSON.stringify({}),
       icon: '🚀',
       category: 'productivity',
@@ -507,8 +571,8 @@ export const seedMCPServers = () => {
       name: 'HubSpot',
       description: 'CRM & Marketing - contacts, deals, emails, analytics',
       transport_type: 'stdio',
-      command: 'npx',
-      args: JSON.stringify(['-y', 'mcp-server-hubspot']),
+      command: 'node',
+      args: JSON.stringify(['./mcp-servers/hubspot/index.js']),
       env: JSON.stringify({}),
       icon: '🧲',
       category: 'business',
@@ -518,6 +582,57 @@ export const seedMCPServers = () => {
       auth_provider: 'hubspot',
       scopes: null,
       capabilities: JSON.stringify(['manage_contacts', 'track_deals', 'send_email', 'view_analytics'])
+    },
+    {
+      server_key: 'anthropic',
+      name: 'Anthropic (Claude)',
+      description: 'Claude AI - modèles avancés pour analyse de code, résumé, et conversations',
+      transport_type: 'stdio',
+      command: 'node',
+      args: JSON.stringify(['./mcp-servers/anthropic/index.js']),
+      env: JSON.stringify({}),
+      icon: '🤖',
+      category: 'ai',
+      status: 'available',
+      requires_auth: 1,
+      auth_type: 'api_key',
+      auth_provider: 'anthropic',
+      scopes: null,
+      capabilities: JSON.stringify(['claude_complete', 'claude_chat', 'analyze_code', 'summarize_text'])
+    },
+    {
+      server_key: 'openai',
+      name: 'OpenAI (GPT & DALL-E)',
+      description: 'GPT-4, GPT-3.5, DALL-E - génération de texte, embeddings, et images',
+      transport_type: 'stdio',
+      command: 'node',
+      args: JSON.stringify(['./mcp-servers/openai/index.js']),
+      env: JSON.stringify({}),
+      icon: '🧠',
+      category: 'ai',
+      status: 'available',
+      requires_auth: 1,
+      auth_type: 'api_key',
+      auth_provider: 'openai',
+      scopes: null,
+      capabilities: JSON.stringify(['gpt_complete', 'create_embeddings', 'generate_image'])
+    },
+    {
+      server_key: 'airtable',
+      name: 'Airtable',
+      description: 'Base de données type spreadsheet - CRUD sur tables et enregistrements',
+      transport_type: 'stdio',
+      command: 'node',
+      args: JSON.stringify(['./mcp-servers/airtable/index.js']),
+      env: JSON.stringify({}),
+      icon: '📊',
+      category: 'database',
+      status: 'available',
+      requires_auth: 1,
+      auth_type: 'api_key',
+      auth_provider: 'airtable',
+      scopes: null,
+      capabilities: JSON.stringify(['list_records', 'create_record', 'update_record', 'delete_record'])
     },
 
     // === UTILITAIRES & AUTOMATION (2) ===
@@ -558,7 +673,7 @@ export const seedMCPServers = () => {
   ];
 
   const insert = db.prepare(`
-    INSERT INTO mcp_servers (
+    INSERT OR IGNORE INTO mcp_servers (
       server_key, name, description, transport_type, command, args, env,
       icon, category, status, requires_auth, auth_type, auth_provider, scopes, capabilities
     ) VALUES (
@@ -567,15 +682,50 @@ export const seedMCPServers = () => {
     )
   `);
 
+  const update = db.prepare(`
+    UPDATE mcp_servers SET
+      name = @name,
+      description = @description,
+      transport_type = @transport_type,
+      command = @command,
+      args = @args,
+      env = @env,
+      icon = @icon,
+      category = @category,
+      status = @status,
+      requires_auth = @requires_auth,
+      auth_type = @auth_type,
+      auth_provider = @auth_provider,
+      scopes = @scopes,
+      capabilities = @capabilities,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE server_key = @server_key
+  `);
+
   const insertMany = db.transaction((servers) => {
+    let added = 0;
+    let updated = 0;
     for (const server of servers) {
-      insert.run(server);
+      const existing = db.prepare('SELECT id FROM mcp_servers WHERE server_key = ?').get(server.server_key);
+      if (existing) {
+        // Mettre à jour sans changer l'ID pour préserver les connexions utilisateur
+        update.run(server);
+        updated++;
+      } else {
+        // Insérer seulement si n'existe pas
+        insert.run(server);
+        added++;
+      }
     }
+    return { added, updated, total: servers.length };
   });
 
-  insertMany(servers);
-
-  console.log(`✅ ${servers.length} serveurs MCP créés avec succès`);
+  const result = insertMany(servers);
+  if (result.added > 0 || result.updated > 0) {
+    console.log(`✅ ${result.added} nouveau(x) serveur(s) MCP ajouté(s), ${result.updated} mis à jour (${result.total} au total)`);
+  } else {
+    console.log(`ℹ️  Tous les serveurs MCP sont déjà présents (${result.total} serveurs)`);
+  }
 };
 
 /**

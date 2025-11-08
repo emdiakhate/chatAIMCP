@@ -110,6 +110,7 @@ app.get('/api/info', (req, res) => {
         'GET /api/conversations',
         'POST /api/conversations',
         'GET /api/conversations/:id',
+        'PUT /api/conversations/:id',
         'DELETE /api/conversations/:id'
       ],
       mcp: [

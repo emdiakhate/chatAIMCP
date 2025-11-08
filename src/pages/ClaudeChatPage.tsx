@@ -18,6 +18,23 @@ export const ClaudeChatPage: React.FC = () => {
 
   const currentConversationId = conversationId ? parseInt(conversationId) : null;
 
+  // Écouter les événements pour ouvrir les modals
+  React.useEffect(() => {
+    const handleOpenIntegrations = () => setShowIntegrations(true);
+    const handleOpenMCPTools = () => setShowMCPPanel(true);
+    const handleOpenMCPMarketplace = () => setShowMCPMarketplace(true);
+
+    window.addEventListener('openIntegrations', handleOpenIntegrations);
+    window.addEventListener('openMCPTools', handleOpenMCPTools);
+    window.addEventListener('openMCPMarketplace', handleOpenMCPMarketplace);
+
+    return () => {
+      window.removeEventListener('openIntegrations', handleOpenIntegrations);
+      window.removeEventListener('openMCPTools', handleOpenMCPTools);
+      window.removeEventListener('openMCPMarketplace', handleOpenMCPMarketplace);
+    };
+  }, []);
+
   return (
     <>
       <ClaudeLayout>
@@ -25,6 +42,9 @@ export const ClaudeChatPage: React.FC = () => {
           <ChatArea
             conversationId={currentConversationId}
             onToggleSidebar={toggleSidebar}
+            onOpenIntegrations={() => setShowIntegrations(true)}
+            onOpenMCPTools={() => setShowMCPPanel(true)}
+            onOpenMCPMarketplace={() => setShowMCPMarketplace(true)}
           />
         )}
       </ClaudeLayout>

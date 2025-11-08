@@ -1,8 +1,11 @@
 import jwt from 'jsonwebtoken';
 
 export const authenticateToken = (req, res, next) => {
+  // Accepter le token depuis les headers (Bearer token) ou depuis les query params (pour OAuth popups)
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const tokenFromHeader = authHeader && authHeader.split(' ')[1];
+  const tokenFromQuery = req.query.token;
+  const token = tokenFromHeader || tokenFromQuery;
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
