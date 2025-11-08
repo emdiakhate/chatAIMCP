@@ -1,10 +1,29 @@
 /**
- * Helper pour l'API OpenRouter
- * Remplace l'utilisation directe de l'API Gemini
+ * Helper pour l'API OpenRouter et Groq
+ * Supporte les deux APIs qui utilisent le format OpenAI
  */
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'google/gemini-2.5-pro';
+
+/**
+ * Détecte le provider basé sur la clé API
+ * @param {string} apiKey - Clé API
+ * @returns {string} URL de l'API
+ */
+function getApiUrl(apiKey) {
+  // OpenRouter keys start with 'sk-or-'
+  if (apiKey && apiKey.startsWith('sk-or-')) {
+    return OPENROUTER_API_URL;
+  }
+  // Groq keys start with 'gsk_'
+  if (apiKey && apiKey.startsWith('gsk_')) {
+    return GROQ_API_URL;
+  }
+  // Default to OpenRouter
+  return OPENROUTER_API_URL;
+}
 
 /**
  * Envoie un message à OpenRouter et récupère la réponse
@@ -37,7 +56,8 @@ export async function chatCompletion(apiKey, messages, options = {}) {
     }
   }
 
-  const response = await fetch(OPENROUTER_API_URL, {
+  const apiUrl = getApiUrl(apiKey);
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,

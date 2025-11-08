@@ -11,6 +11,7 @@ import {
   extractToolCallsFromResponse,
   prepareToolResponseMessages
 } from '../utils/openrouter.js';
+import { llmRouter } from '../services/llm-router.js';
 
 const router = express.Router();
 
@@ -170,10 +171,17 @@ router.post('/chat', authenticateToken, async (req, res) => {
       }
     }
 
-    // Vérifier la clé API OpenRouter
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY not configured');
-    }
+    // Récupérer les préférences LLM de l'utilisateur
+    const userResult = query('SELECT llm_provider, llm_model, llm_settings FROM users WHERE id = ?', [req.user.userId]);
+    const userPrefs = userResult.rows[0] || {};
+    const llmProvider = userPrefs.llm_provider || llmRouter.defaultProvider;
+    const llmModel = userPrefs.llm_model || llmRouter.defaultModel;
+    const llmSettings = userPrefs.llm_settings ? JSON.parse(userPrefs.llm_settings) : {};
+
+    console.log(`[Chat MCP] Using LLM: ${llmProvider}/${llmModel}`);
+
+    // Fallback to OpenRouter if needed (for compatibility)
+    const useOpenRouter = !llmRouter.groqApiKey && !llmRouter.openrouterApiKey;
 
     // Récupérer l'historique de la conversation
     const messagesResult = query(
@@ -234,18 +242,66 @@ Remember: You are empowered to take action using these tools. Don't just describ
 
       console.log(`[Chat MCP] Itération ${iterations}`);
 
-      // Appeler OpenRouter
-      const result = await chatCompletion(
-        process.env.OPENROUTER_API_KEY,
-        messages,
-        {
-          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
-          temperature: 0.7,
-          max_tokens: 4096,
-          tools: availableTools.length > 0 ? availableTools : undefined,
-          tool_choice: availableTools.length > 0 ? 'auto' : undefined
+      // Appeler LLM (OpenRouter ou custom provider)
+      let result;
+
+      if (useOpenRouter) {
+        // Fallback to OpenRouter (legacy)
+        if (!process.env.OPENROUTER_API_KEY) {
+          throw new Error('No LLM provider configured. Please set GROQ_API_KEY or OPENROUTER_API_KEY');
         }
-      );
+        result = await chatCompletion(
+          process.env.OPENROUTER_API_KEY,
+          messages,
+          {
+            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+            temperature: llmSettings.temperature || 0.7,
+            max_tokens: llmSettings.maxTokens || 4096,
+            tools: availableTools.length > 0 ? availableTools : undefined,
+            tool_choice: availableTools.length > 0 ? 'auto' : undefined
+          }
+        );
+      } else {
+        // Use LLM Router (Groq/OpenRouter with model selection)
+        // Map provider to OpenRouter model if using OpenRouter provider
+        let modelId = llmModel;
+        if (llmProvider === 'openrouter') {
+          // OpenRouter models need full model ID
+          const modelMap = {
+            'claude-sonnet': 'anthropic/claude-3.5-sonnet',
+            'claude-haiku': 'anthropic/claude-3.5-haiku',
+            'gemini-pro': 'google/gemini-pro-1.5',
+            'gemini-flash': 'google/gemini-flash-1.5',
+            'gpt-4o': 'openai/gpt-4o',
+            'gpt-4o-mini': 'openai/gpt-4o-mini',
+            'llama-3.1-405b': 'meta-llama/llama-3.1-405b-instruct',
+            'llama-3.1-70b': 'meta-llama/llama-3.1-70b-instruct',
+            'mistral-large': 'mistralai/mistral-large'
+          };
+          modelId = modelMap[llmModel] || 'google/gemini-flash-1.5';
+        } else if (llmProvider === 'groq') {
+          // Groq models need proper ID
+          const modelMap = {
+            'llama-3.1-70b': 'llama-3.1-70b-versatile',
+            'llama-3.1-8b': 'llama-3.1-8b-instant',
+            'mixtral-8x7b': 'mixtral-8x7b-32768',
+            'gemma-7b': 'gemma-7b-it'
+          };
+          modelId = modelMap[llmModel] || 'llama-3.1-70b-versatile';
+        }
+
+        result = await chatCompletion(
+          llmProvider === 'groq' ? llmRouter.groqApiKey : llmRouter.openrouterApiKey,
+          messages,
+          {
+            model: modelId,
+            temperature: llmSettings.temperature || 0.7,
+            max_tokens: llmSettings.maxTokens || 4096,
+            tools: availableTools.length > 0 ? availableTools : undefined,
+            tool_choice: availableTools.length > 0 ? 'auto' : undefined
+          }
+        );
+      }
 
       // Vérifier s'il y a des tool calls
       const extractedToolCalls = extractToolCallsFromResponse(result);

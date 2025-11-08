@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { initDatabase, seedMCPServers } from './config/database-sqlite-mcp.js';
+import { initDatabase, seedMCPServers, runMigrations } from './config/database-sqlite-mcp.js';
 
 // Routes SQLite
 import authRoutes from './routes/auth.js';
@@ -19,6 +19,7 @@ import oauthSlackRoutes from './routes/oauth-slack.js';
 import oauthSalesforceRoutes from './routes/oauth-salesforce.js';
 import oauthTeamsRoutes from './routes/oauth-teams.js';
 import authApiKeyRoutes from './routes/auth-apikey.js';
+import llmRoutes from './routes/llm.js';
 
 // Gestionnaires MCP
 import mcpClientManager from './mcp/client-manager.js';
@@ -40,6 +41,7 @@ app.use(express.json());
 // Initialisation de la base de données
 console.log('🔄 Initialisation de la base de données SQLite avec MCP...');
 initDatabase();
+runMigrations();
 seedMCPServers();
 console.log('✅ Base de données SQLite avec MCP initialisée');
 
@@ -63,6 +65,9 @@ app.use('/api/auth', oauthTeamsRoutes);
 
 // === ROUTES API KEY ===
 app.use('/api/auth', authApiKeyRoutes);
+
+// === ROUTES LLM ===
+app.use('/api/llm', llmRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

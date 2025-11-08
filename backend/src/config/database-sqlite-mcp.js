@@ -27,6 +27,9 @@ export const initDatabase = () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
+      llm_provider TEXT DEFAULT 'groq',
+      llm_model TEXT DEFAULT 'llama-3.1-70b',
+      llm_settings TEXT DEFAULT '{}',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -757,6 +760,33 @@ export const query = (sql, params = []) => {
     rowCount: result.changes,
     lastInsertRowid: result.lastInsertRowid
   };
+};
+
+/**
+ * Migrations for existing databases
+ */
+export const runMigrations = () => {
+  console.log('[Database] Running migrations...');
+
+  // Migration 1: Add LLM preferences to users table
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(users)").all();
+    const hasLlmProvider = tableInfo.some(col => col.name === 'llm_provider');
+
+    if (!hasLlmProvider) {
+      console.log('[Database] Adding LLM preference columns to users table...');
+      db.exec(`
+        ALTER TABLE users ADD COLUMN llm_provider TEXT DEFAULT 'groq';
+        ALTER TABLE users ADD COLUMN llm_model TEXT DEFAULT 'llama-3.1-70b';
+        ALTER TABLE users ADD COLUMN llm_settings TEXT DEFAULT '{}';
+      `);
+      console.log('[Database] ✅ LLM preference columns added');
+    }
+  } catch (error) {
+    console.error('[Database] Migration error:', error.message);
+  }
+
+  console.log('[Database] Migrations completed');
 };
 
 export default db;
