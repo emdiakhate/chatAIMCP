@@ -89,6 +89,20 @@ class ApiClient {
     return response.json();
   }
 
+  async getMessages(conversationId: number) {
+    const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      // Fallback to getConversation and extract messages
+      const { messages } = await this.getConversation(conversationId);
+      return messages;
+    }
+
+    return response.json();
+  }
+
   async deleteConversation(id: number) {
     const response = await fetch(`${API_BASE_URL}/conversations/${id}`, {
       method: 'DELETE',

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthPage } from './pages/AuthPage';
 import { ChatPage } from './pages/ChatPage';
+import { ClaudeChatPage } from './pages/ClaudeChatPage';
 import { Loader2 } from 'lucide-react';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -45,7 +46,23 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/chat/:conversationId"
+        element={
+          <PrivateRoute>
+            <ClaudeChatPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/chat"
+        element={
+          <PrivateRoute>
+            <ClaudeChatPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/chat-old"
         element={
           <PrivateRoute>
             <ChatPage />
