@@ -147,16 +147,11 @@ class ApiClient {
     return response.json();
   }
 
-  async sendMessage(conversationId: number, message: string, selectedModel?: { provider: string; model: string }) {
+  async sendMessage(conversationId: number, message: string) {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
       headers: this.getAuthHeader(),
-      body: JSON.stringify({
-        conversationId,
-        message,
-        provider: selectedModel?.provider,
-        model: selectedModel?.model
-      }),
+      body: JSON.stringify({ conversationId, message }),
     });
 
     if (!response.ok) {

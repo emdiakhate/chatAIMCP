@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MessageSquare, Plus, Settings, LogOut, Edit2, Check, X, BarChart3, Sparkles } from 'lucide-react';
+import { MessageSquare, Plus, Settings, LogOut, Edit2, Check, X } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LLMSettings } from './LLMSettings';
-import { LLMDashboard } from './LLMDashboard';
 
 interface Conversation {
   id: number;
@@ -254,13 +252,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
       {/* Footer */}
       <div className="p-3 border-t border-gray-200 space-y-1">
-        {/* LLM Settings & Dashboard */}
-        <LLMSettings />
-        <LLMDashboard />
-
-        {/* Divider */}
-        <div className="border-t border-gray-200 my-2" />
-
         <button
           onClick={() => {
             // Ouvrir les intégrations via un événement personnalisé
