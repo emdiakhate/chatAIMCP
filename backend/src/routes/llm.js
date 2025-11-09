@@ -11,6 +11,14 @@ const router = express.Router();
  */
 router.get('/models', authenticateToken, (req, res) => {
   try {
+    // Ensure API keys are loaded from environment (in case dotenv loaded after module import)
+    if (process.env.GROQ_API_KEY && !llmRouter.groqApiKey) {
+      llmRouter.groqApiKey = process.env.GROQ_API_KEY;
+    }
+    if (process.env.OPENROUTER_API_KEY && !llmRouter.openrouterApiKey) {
+      llmRouter.openrouterApiKey = process.env.OPENROUTER_API_KEY;
+    }
+
     const models = llmRouter.getAvailableModels();
 
     // Group by provider

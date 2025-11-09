@@ -9,7 +9,7 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1';
 
 export const GROQ_MODELS = {
   'llama-3.1-70b': {
-    id: 'llama-3.1-70b-versatile',
+    id: 'llama-3.1-70b', // Changed from llama-3.1-70b-versatile (deprecated)
     name: 'Llama 3.1 70B',
     contextWindow: 131072,
     cost: { input: 0.00059, output: 0.00079 }, // per 1K tokens

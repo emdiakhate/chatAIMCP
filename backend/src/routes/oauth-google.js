@@ -6,11 +6,18 @@ import db, { query } from '../config/database-sqlite-mcp.js';
 const router = express.Router();
 
 // Configuration OAuth2 Google
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/auth/google/callback';
+// Helper function to get Google credentials (reloads from env each time to ensure latest values)
+function getGoogleCredentials() {
+  return {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/auth/google/callback'
+  };
+}
 
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+// Check on module load
+const initialCreds = getGoogleCredentials();
+if (!initialCreds.clientId || !initialCreds.clientSecret) {
   console.warn('⚠️  GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured');
 }
 
@@ -18,10 +25,11 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
  * Créer un client OAuth2
  */
 function createOAuth2Client() {
+  const creds = getGoogleCredentials();
   return new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URI
+    creds.clientId,
+    creds.clientSecret,
+    creds.redirectUri
   );
 }
 
@@ -35,7 +43,9 @@ router.get('/google', authenticateToken, (req, res) => {
     const { scope } = req.query;
     const userId = req.user.userId;
 
-    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    // Reload credentials from environment to ensure latest values
+    const creds = getGoogleCredentials();
+    if (!creds.clientId || !creds.clientSecret) {
       return res.status(500).send(`
         <html>
           <body>
@@ -47,6 +57,12 @@ router.get('/google', authenticateToken, (req, res) => {
         </html>
       `);
     }
+
+    console.log('[OAuth Google] Starting OAuth flow:', {
+      scope,
+      redirectUri: creds.redirectUri,
+      clientId: creds.clientId?.substring(0, 20) + '...'
+    });
 
     const oauth2Client = createOAuth2Client();
 
@@ -61,6 +77,10 @@ router.get('/google', authenticateToken, (req, res) => {
     } else if (scope === 'drive') {
       scopes = [
         'https://www.googleapis.com/auth/drive.readonly'
+      ];
+    } else if (scope === 'sheets') {
+      scopes = [
+        'https://www.googleapis.com/auth/spreadsheets'
       ];
     } else {
       // Par défaut: Gmail + Drive
@@ -161,7 +181,14 @@ router.get('/google/callback', async (req, res) => {
     } = tokens;
 
     // Stocker les tokens dans la table integrations
-    const provider = scope === 'gmail' ? 'google-gmail' : 'google';
+    let provider = 'google';
+    if (scope === 'gmail') {
+      provider = 'google-gmail';
+    } else if (scope === 'drive') {
+      provider = 'google-drive';
+    } else if (scope === 'sheets') {
+      provider = 'google-sheets';
+    }
     const expiresAt = expiry_date ? new Date(expiry_date).toISOString() : null;
 
     // Vérifier si une intégration existe déjà

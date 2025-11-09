@@ -11,7 +11,7 @@ import {
   extractToolCallsFromResponse,
   prepareToolResponseMessages
 } from '../utils/openrouter.js';
-import { llmRouter } from '../services/llm-router.js';
+import { llmRouter, PROVIDERS } from '../services/llm-router.js';
 
 const router = express.Router();
 
@@ -251,16 +251,16 @@ Remember: You are empowered to take action using these tools. Don't just describ
           throw new Error('No LLM provider configured. Please set GROQ_API_KEY or OPENROUTER_API_KEY');
         }
         result = await chatCompletion(
-          process.env.OPENROUTER_API_KEY,
-          messages,
-          {
-            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+        process.env.OPENROUTER_API_KEY,
+        messages,
+        {
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
             temperature: llmSettings.temperature || 0.7,
             max_tokens: llmSettings.maxTokens || 4096,
-            tools: availableTools.length > 0 ? availableTools : undefined,
-            tool_choice: availableTools.length > 0 ? 'auto' : undefined
-          }
-        );
+          tools: availableTools.length > 0 ? availableTools : undefined,
+          tool_choice: availableTools.length > 0 ? 'auto' : undefined
+        }
+      );
       } else {
         // Use LLM Router (Groq/OpenRouter with model selection)
         // Map provider to OpenRouter model if using OpenRouter provider
@@ -280,16 +280,18 @@ Remember: You are empowered to take action using these tools. Don't just describ
           };
           modelId = modelMap[llmModel] || 'google/gemini-flash-1.5';
         } else if (llmProvider === 'groq') {
-          // Groq models need proper ID
+          // Groq models - use correct model IDs for Groq API
+          // Note: llama-3.1-70b-versatile is deprecated, use mixtral-8x7b-32768 as default
           const modelMap = {
-            'llama-3.1-70b': 'llama-3.1-70b-versatile',
+            'llama-3.1-70b': 'mixtral-8x7b-32768', // Fallback to Mixtral (llama-3.1-70b-versatile deprecated)
             'llama-3.1-8b': 'llama-3.1-8b-instant',
             'mixtral-8x7b': 'mixtral-8x7b-32768',
             'gemma-7b': 'gemma-7b-it'
           };
-          modelId = modelMap[llmModel] || 'llama-3.1-70b-versatile';
+          modelId = modelMap[llmModel] || 'mixtral-8x7b-32768'; // Use Mixtral as default (llama-3.1-70b deprecated)
         }
 
+        // Use chatCompletion which supports both Groq and OpenRouter via API key detection
         result = await chatCompletion(
           llmProvider === 'groq' ? llmRouter.groqApiKey : llmRouter.openrouterApiKey,
           messages,

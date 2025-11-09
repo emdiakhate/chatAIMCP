@@ -57,14 +57,23 @@ export async function chatCompletion(apiKey, messages, options = {}) {
   }
 
   const apiUrl = getApiUrl(apiKey);
+  const isGroq = apiKey && apiKey.startsWith('gsk_');
+  
+  // Headers spécifiques selon le provider
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+  
+  // OpenRouter nécessite des headers supplémentaires
+  if (!isGroq) {
+    headers['HTTP-Referer'] = process.env.FRONTEND_URL || 'http://localhost:5173';
+    headers['X-Title'] = 'ChatAI MCP';
+  }
+  
   const response = await fetch(apiUrl, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
-      'X-Title': 'ChatAI MCP'
-    },
+    headers,
     body: JSON.stringify(body)
   });
 

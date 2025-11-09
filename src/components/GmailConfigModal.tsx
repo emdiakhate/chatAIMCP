@@ -5,12 +5,14 @@ interface GmailConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfigured?: () => void;
+  scope?: 'gmail' | 'drive' | 'sheets'; // Scope OAuth à utiliser
 }
 
 export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
   isOpen,
   onClose,
   onConfigured,
+  scope = 'gmail',
 }) => {
   const [step, setStep] = useState<'intro' | 'oauth' | 'success'>('intro');
   const [loading, setLoading] = useState(false);
@@ -35,8 +37,8 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
       
       // Passer le token dans l'URL car window.open() ne peut pas envoyer de headers
       const oauthUrl = token 
-        ? `${backendUrl}/api/auth/google?scope=gmail&token=${encodeURIComponent(token)}`
-        : `${backendUrl}/api/auth/google?scope=gmail`;
+        ? `${backendUrl}/api/auth/google?scope=${scope}&token=${encodeURIComponent(token)}`
+        : `${backendUrl}/api/auth/google?scope=${scope}`;
       
       const popup = window.open(
         oauthUrl,

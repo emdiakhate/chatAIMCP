@@ -271,7 +271,20 @@ export class LLMRouter {
 }
 
 // Export singleton instance
+// Note: This is created after dotenv.config() is called in server-sqlite-mcp.js
+// If dotenv hasn't loaded yet, the router will use undefined keys and can be re-initialized
 export const llmRouter = new LLMRouter();
+
+// Re-initialize router with environment variables if they weren't loaded initially
+// This ensures the router always has the latest API keys
+if (typeof process !== 'undefined' && process.env) {
+  if (process.env.GROQ_API_KEY && !llmRouter.groqApiKey) {
+    llmRouter.groqApiKey = process.env.GROQ_API_KEY;
+  }
+  if (process.env.OPENROUTER_API_KEY && !llmRouter.openrouterApiKey) {
+    llmRouter.openrouterApiKey = process.env.OPENROUTER_API_KEY;
+  }
+}
 
 // Export task routing for reference
 export { TASK_ROUTING };

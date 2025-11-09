@@ -105,6 +105,10 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
           // Google Drive utilise le même OAuth que Gmail mais avec un scope différent
           setShowGmailConfig(true);
           return;
+        case 'gsheets':
+          // Google Sheets utilise le même OAuth que Gmail mais avec un scope différent
+          setShowGmailConfig(true);
+          return;
         case 'slack':
           setShowSlackConfig(true);
           return;
@@ -484,6 +488,19 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
             setSelectedServer(null);
           }}
           onConfigured={handleOAuthConfigured}
+          scope="drive"
+        />
+      )}
+
+      {selectedServer && selectedServer.server_key === 'gsheets' && (
+        <GmailConfigModal
+          isOpen={showGmailConfig}
+          onClose={() => {
+            setShowGmailConfig(false);
+            setSelectedServer(null);
+          }}
+          onConfigured={handleOAuthConfigured}
+          scope="sheets"
         />
       )}
 
