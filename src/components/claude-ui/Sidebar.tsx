@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MessageSquare, Plus, Settings, LogOut, Edit2, Check, X } from 'lucide-react';
+import { MessageSquare, Plus, Settings, LogOut, Edit2, Check, X, Boxes } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -252,6 +252,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
       {/* Footer */}
       <div className="p-3 border-t border-gray-200 space-y-1">
+        <button
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('openMCPMarketplace'));
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-[#CC785C] hover:bg-[#FFF8F5] rounded-lg transition-colors"
+        >
+          <Boxes className="w-4 h-4" />
+          MCP Tools
+        </button>
+        <div className="my-2 border-t border-gray-200"></div>
         <button
           onClick={() => {
             // Ouvrir les intégrations via un événement personnalisé

@@ -2,10 +2,10 @@
   "name": "chatai-pro-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/server.js",
+  "main": "src/server-sqlite-mcp.js",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "dev": "node --watch src/server-sqlite-mcp.js",
+    "start": "node src/server-sqlite-mcp.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.1.3",
