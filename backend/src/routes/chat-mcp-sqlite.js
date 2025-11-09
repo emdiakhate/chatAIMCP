@@ -32,7 +32,7 @@ const parseJson = (str) => {
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const { conversationId, message } = req.body;
+    const { conversationId, message, provider, model } = req.body;
 
     if (!conversationId || !message) {
       return res.status(400).json({
@@ -174,8 +174,9 @@ router.post('/chat', authenticateToken, async (req, res) => {
     // Récupérer les préférences LLM de l'utilisateur
     const userResult = query('SELECT llm_provider, llm_model, llm_settings FROM users WHERE id = ?', [req.user.userId]);
     const userPrefs = userResult.rows[0] || {};
-    const llmProvider = userPrefs.llm_provider || llmRouter.defaultProvider;
-    const llmModel = userPrefs.llm_model || llmRouter.defaultModel;
+    // Utiliser provider/model du body si fournis, sinon les préférences utilisateur, sinon les valeurs par défaut
+    const llmProvider = provider || userPrefs.llm_provider || llmRouter.defaultProvider;
+    const llmModel = model || userPrefs.llm_model || llmRouter.defaultModel;
     const llmSettings = userPrefs.llm_settings ? JSON.parse(userPrefs.llm_settings) : {};
 
     console.log(`[Chat MCP] Using LLM: ${llmProvider}/${llmModel}`);
@@ -262,47 +263,34 @@ Remember: You are empowered to take action using these tools. Don't just describ
         }
       );
       } else {
-        // Use LLM Router (Groq/OpenRouter with model selection)
-        // Map provider to OpenRouter model if using OpenRouter provider
-        let modelId = llmModel;
-        if (llmProvider === 'openrouter') {
-          // OpenRouter models need full model ID
-          const modelMap = {
-            'claude-sonnet': 'anthropic/claude-3.5-sonnet',
-            'claude-haiku': 'anthropic/claude-3.5-haiku',
-            'gemini-pro': 'google/gemini-pro-1.5',
-            'gemini-flash': 'google/gemini-flash-1.5',
-            'gpt-4o': 'openai/gpt-4o',
-            'gpt-4o-mini': 'openai/gpt-4o-mini',
-            'llama-3.1-405b': 'meta-llama/llama-3.1-405b-instruct',
-            'llama-3.1-70b': 'meta-llama/llama-3.1-70b-instruct',
-            'mistral-large': 'mistralai/mistral-large'
-          };
-          modelId = modelMap[llmModel] || 'google/gemini-flash-1.5';
-        } else if (llmProvider === 'groq') {
-          // Groq models - use correct model IDs for Groq API
-          // Note: llama-3.1-70b-versatile is deprecated, use mixtral-8x7b-32768 as default
-          const modelMap = {
-            'llama-3.1-70b': 'mixtral-8x7b-32768', // Fallback to Mixtral (llama-3.1-70b-versatile deprecated)
-            'llama-3.1-8b': 'llama-3.1-8b-instant',
-            'mixtral-8x7b': 'mixtral-8x7b-32768',
-            'gemma-7b': 'gemma-7b-it'
-          };
-          modelId = modelMap[llmModel] || 'mixtral-8x7b-32768'; // Use Mixtral as default (llama-3.1-70b deprecated)
-        }
-
-        // Use chatCompletion which supports both Groq and OpenRouter via API key detection
-        result = await chatCompletion(
-          llmProvider === 'groq' ? llmRouter.groqApiKey : llmRouter.openrouterApiKey,
+        // Use LLM Router for consistent handling and cost tracking
+        result = await llmRouter.call({
           messages,
-          {
-            model: modelId,
-            temperature: llmSettings.temperature || 0.7,
-            max_tokens: llmSettings.maxTokens || 4096,
-            tools: availableTools.length > 0 ? availableTools : undefined,
-            tool_choice: availableTools.length > 0 ? 'auto' : undefined
-          }
-        );
+          provider: llmProvider,
+          model: llmModel,
+          temperature: llmSettings.temperature || 0.7,
+          maxTokens: llmSettings.maxTokens || 4096,
+          enableFallback: llmSettings.enableFallback !== false
+        });
+
+        // Convert result to the expected format
+        if (!result.choices) {
+          result = {
+            choices: [{
+              message: {
+                role: 'assistant',
+                content: result.content
+              }
+            }],
+            usage: result.usage,
+            _llmRouter: { // Store LLM Router metadata
+              provider: result.provider,
+              model: result.model,
+              usage: result.usage,
+              cost: result.cost
+            }
+          };
+        }
       }
 
       // Vérifier s'il y a des tool calls
@@ -417,7 +405,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
     }
 
     // Enregistrer la réponse de l'assistant
-    query(
+    const messageResult = query(
       'INSERT INTO messages (conversation_id, role, content, sources) VALUES (?, ?, ?, ?)',
       [
         conversationId,
@@ -426,6 +414,39 @@ Remember: You are empowered to take action using these tools. Don't just describ
         toolCalls.length > 0 ? JSON.stringify(toolCalls) : null
       ]
     );
+
+    const messageId = messageResult.lastInsertRowid;
+
+    // Track LLM usage statistics if available
+    if (result._llmRouter) {
+      try {
+        const llmData = result._llmRouter;
+        query(`
+          INSERT INTO llm_usage_stats (
+            user_id, conversation_id, message_id, provider, model,
+            input_tokens, output_tokens, total_tokens,
+            input_cost, output_cost, total_cost, currency
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          req.user.userId,
+          conversationId,
+          messageId,
+          llmData.provider,
+          llmData.model,
+          llmData.usage.inputTokens || 0,
+          llmData.usage.outputTokens || 0,
+          llmData.usage.totalTokens || 0,
+          llmData.cost.input || 0,
+          llmData.cost.output || 0,
+          llmData.cost.total || 0,
+          llmData.cost.currency || 'USD'
+        ]);
+        console.log(`[Chat MCP] Tracked usage: ${llmData.usage.totalTokens} tokens, $${llmData.cost.total.toFixed(6)}`);
+      } catch (trackingError) {
+        console.error('[Chat MCP] Failed to track LLM usage:', trackingError);
+        // Don't fail the request if tracking fails
+      }
+    }
 
     // Mettre à jour le timestamp de la conversation
     query(
