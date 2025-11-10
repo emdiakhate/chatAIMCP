@@ -5,7 +5,7 @@
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const DEFAULT_MODEL = 'google/gemini-2.5-pro';
+const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 
 /**
  * Détecte le provider basé sur la clé API

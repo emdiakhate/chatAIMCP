@@ -89,7 +89,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
       process.env.OPENROUTER_API_KEY,
       messages,
       {
-        model: process.env.OPENROUTER_MODEL || 'google/gemini-flash-1.5-8b',
+        model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
         temperature: 0.7,
         max_tokens: 2048
       }

@@ -285,11 +285,57 @@ router.post('/memory/store', authenticateToken, async (req, res) => {
         }
       }
 
-      console.log(`[Memory] Add observations result:`, JSON.stringify(result, null, 2));
+      console.log(`[Memory] Add observations result:`, result);
 
       if (!result) {
         throw new Error('Failed to store memory: No result from add_observations');
       }
+
+      // Logger dans mcp_tool_calls (seulement si succès)
+      try {
+        // Sérialiser le résultat de manière sécurisée
+        let resultJson = '{}';
+        try {
+          resultJson = JSON.stringify(result);
+        } catch (jsonError) {
+          console.warn('[Memory] Could not stringify result, using summary:', jsonError.message);
+          resultJson = JSON.stringify({ 
+            success: true, 
+            note: 'Result could not be serialized',
+            hasContent: !!result?.content 
+          });
+        }
+
+        query(`
+          INSERT INTO mcp_tool_calls (
+            user_id, server_id, tool_name, parameters, result, success, execution_time, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `, [
+          userId,
+          connection.server_id,
+          'add_observations',
+          JSON.stringify({ content: memoryContent, entity_name: entityName }),
+          resultJson,
+          1,
+          0
+        ]);
+        console.log('[Memory] Tool call logged successfully');
+      } catch (logError) {
+        console.error('[Memory] Error logging tool call (non-critical):', logError);
+        // Ne pas faire échouer la requête si le logging échoue
+      }
+
+      // Envoyer la réponse de succès
+      return res.json({
+        success: true,
+        memory: {
+          id: `mem-${Date.now()}`,
+          content,
+          tags: tags || [],
+          createdAt: new Date().toISOString()
+        },
+        message: 'Memory stored successfully'
+      });
     } catch (error) {
       console.error('Error storing memory:', error);
       console.error('Error details:', {
@@ -299,37 +345,31 @@ router.post('/memory/store', authenticateToken, async (req, res) => {
         errorMessage: error.message,
         errorCode: error.code
       });
+      
+      // Logger l'erreur dans mcp_tool_calls
+      try {
+        query(`
+          INSERT INTO mcp_tool_calls (
+            user_id, server_id, tool_name, parameters, error_message, success, execution_time, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `, [
+          userId,
+          connection.server_id,
+          'add_observations',
+          JSON.stringify({ content: memoryContent, entity_name: entityName }),
+          error.message || 'Unknown error',
+          0,
+          0
+        ]);
+      } catch (logError) {
+        console.error('Error logging failed tool call (non-critical):', logError);
+      }
+      
       return res.status(500).json({
         success: false,
         error: error.message || 'Failed to store memory'
       });
     }
-
-    // Logger dans mcp_tool_calls
-    query(`
-      INSERT INTO mcp_tool_calls (
-        user_id, server_id, tool_name, parameters, result, success, execution_time, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `, [
-      userId,
-      connection.server_id,
-      'add_observations',
-      JSON.stringify({ content: memoryContent, entity_name: entityName }),
-      JSON.stringify({ success: true }),
-      1,
-      0
-    ]);
-
-    res.json({
-      success: true,
-      memory: {
-        id: `mem-${Date.now()}`,
-        content,
-        tags: tags || [],
-        createdAt: new Date().toISOString()
-      },
-      message: 'Memory stored successfully'
-    });
 
   } catch (error) {
     console.error('Error storing memory:', error);

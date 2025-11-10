@@ -46,17 +46,71 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
         `width=${width},height=${height},left=${left},top=${top}`
       );
 
-      // Listen for OAuth completion
+      if (!popup) {
+        setError('Popup blocked. Please allow popups for this site.');
+        setLoading(false);
+        return;
+      }
+
+      // Listen for OAuth completion via postMessage
+      const handleMessage = (event: MessageEvent) => {
+        // Accept messages from localhost:3001 (backend)
+        if (event.origin !== 'http://localhost:3001' && event.origin !== window.location.origin) {
+          return;
+        }
+
+        if (event.data?.type === 'oauth-success') {
+          window.removeEventListener('message', handleMessage);
+          if (popup) {
+            popup.close();
+          }
+          setStep('success');
+          setLoading(false);
+          onConfigured?.();
+        } else if (event.data?.type === 'oauth-error') {
+          window.removeEventListener('message', handleMessage);
+          if (popup) {
+            popup.close();
+          }
+          setError(event.data.message || 'OAuth authorization failed');
+          setLoading(false);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Fallback: check if popup is closed (for browsers that don't support postMessage)
+      let currentStep = 'oauth';
       const checkPopup = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkPopup);
-          // Check if OAuth was successful
-          setTimeout(() => {
-            setStep('success');
-            setLoading(false);
-          }, 500);
+        try {
+          if (popup?.closed) {
+            clearInterval(checkPopup);
+            window.removeEventListener('message', handleMessage);
+            // Give a moment for postMessage to arrive
+            setTimeout(() => {
+              // If still in oauth step, assume it was closed manually
+              setError('Authorization was cancelled or the popup was closed.');
+              setLoading(false);
+            }, 1000);
+          }
+        } catch (e) {
+          // Ignore COOP errors when checking window.closed
+          // postMessage will handle the communication
         }
       }, 500);
+
+      // Cleanup after 5 minutes
+      setTimeout(() => {
+        clearInterval(checkPopup);
+        window.removeEventListener('message', handleMessage);
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+        if (loading) {
+          setError('Authorization timed out. Please try again.');
+          setLoading(false);
+        }
+      }, 5 * 60 * 1000);
     } catch (err: any) {
       setError(err.message || 'Failed to start OAuth flow');
       setLoading(false);

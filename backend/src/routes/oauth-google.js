@@ -133,6 +133,11 @@ router.get('/google/callback', async (req, res) => {
             <p>Error: ${error}</p>
             <p>You can close this window and try again.</p>
             <script>
+              // Send error message to parent window
+              if (window.opener) {
+                const errorMsg = ${JSON.stringify(error)};
+                window.opener.postMessage({ type: 'oauth-error', message: errorMsg }, '*');
+              }
               setTimeout(() => window.close(), 3000);
             </script>
           </body>
@@ -315,10 +320,14 @@ router.get('/google/callback', async (req, res) => {
             <button class="close-btn" onclick="window.close()">Close Window</button>
           </div>
           <script>
-            // Auto-close after 5 seconds
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({ type: 'oauth-success', provider: '${provider}', scope: '${scope}' }, '*');
+            }
+            // Auto-close after 2 seconds
             setTimeout(() => {
               window.close();
-            }, 5000);
+            }, 2000);
           </script>
         </body>
       </html>

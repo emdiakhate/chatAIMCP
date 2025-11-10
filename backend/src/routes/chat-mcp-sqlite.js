@@ -127,6 +127,53 @@ router.post('/chat', authenticateToken, async (req, res) => {
           }
         }
 
+        // Inject OAuth tokens for OAuth-based servers (Google services)
+        if (connection.auth_type?.includes('oauth') || connection.auth_type?.includes('oauth2')) {
+          const providerMap = {
+            'gmail': 'google-gmail',
+            'gdrive': 'google-drive',
+            'gsheets': 'google-sheets',
+            'slack': 'slack',
+            'salesforce': 'salesforce',
+            'teams': 'microsoft-teams'
+          };
+
+          const integrationProvider = providerMap[connection.server_key] || connection.auth_provider || connection.server_key;
+
+          const integrationResult = query(
+            'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
+            [req.user.userId, integrationProvider]
+          );
+
+          if (integrationResult.rows.length > 0) {
+            const integration = integrationResult.rows[0];
+            
+            // Inject tokens based on server type
+            if (connection.server_key === 'gmail') {
+              envVars.GMAIL_ACCESS_TOKEN = integration.access_token;
+              envVars.GMAIL_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+              envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+            } else if (connection.server_key === 'gdrive' || connection.server_key === 'gsheets') {
+              // Google Drive and Sheets use @modelcontextprotocol/server-gdrive
+              // They typically use GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN
+              envVars.GOOGLE_ACCESS_TOKEN = integration.access_token;
+              envVars.GOOGLE_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+              envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+            } else {
+              // Generic OAuth tokens
+              envVars.ACCESS_TOKEN = integration.access_token;
+              envVars.REFRESH_TOKEN = integration.refresh_token;
+            }
+            
+            console.log(`[Chat MCP] OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
+          } else {
+            console.warn(`[Chat MCP] No OAuth tokens found for ${connection.name} (provider: ${integrationProvider})`);
+            console.warn(`[Chat MCP] Please complete OAuth flow first for ${connection.name}`);
+          }
+        }
+
         const serverConfig = {
           id: connection.server_id,
           name: connection.name,
@@ -204,6 +251,8 @@ Guidelines:
 - For email-related queries, use the gmail tools
 - For document storage, use the gdrive tools
 - For code-related tasks, use the github tools
+- For accessing stored memories or knowledge, use the memory tools (read_graph, search_nodes, open_nodes)
+- When you need to remember information for later, use create_entities and add_observations
 - Explain what you're doing when using tools
 - If a tool call fails, explain the error clearly and suggest alternatives
 - Provide clear, concise, and helpful responses
@@ -236,6 +285,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
     let iterations = 0;
     const MAX_ITERATIONS = 5;
     let finalResponse = '';
+    let result = null; // Déclarer result en dehors de la boucle
 
     // Boucle de tool calling
     while (iterations < MAX_ITERATIONS) {
@@ -244,7 +294,6 @@ Remember: You are empowered to take action using these tools. Don't just describ
       console.log(`[Chat MCP] Itération ${iterations}`);
 
       // Appeler LLM (OpenRouter ou custom provider)
-      let result;
 
       if (useOpenRouter) {
         // Fallback to OpenRouter (legacy)
@@ -255,7 +304,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
         process.env.OPENROUTER_API_KEY,
         messages,
         {
-          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
             temperature: llmSettings.temperature || 0.7,
             max_tokens: llmSettings.maxTokens || 4096,
           tools: availableTools.length > 0 ? availableTools : undefined,
@@ -395,13 +444,14 @@ Remember: You are empowered to take action using these tools. Don't just describ
         process.env.OPENROUTER_API_KEY,
         messages,
         {
-          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
           temperature: 0.7,
           max_tokens: 4096
         }
       );
 
       finalResponse = extractTextFromResponse(finalResult);
+      result = finalResult; // Utiliser finalResult pour le tracking
     }
 
     // Enregistrer la réponse de l'assistant
@@ -418,7 +468,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
     const messageId = messageResult.lastInsertRowid;
 
     // Track LLM usage statistics if available
-    if (result._llmRouter) {
+    if (result && result._llmRouter) {
       try {
         const llmData = result._llmRouter;
         query(`
@@ -550,6 +600,53 @@ router.get('/chat/available-tools', authenticateToken, async (req, res) => {
             console.log(`[Chat MCP] API key injected for ${connection.server_key}`);
           } else {
             console.warn(`[Chat MCP] No API key found for ${connection.server_key}, server may fail`);
+          }
+        }
+
+        // Inject OAuth tokens for OAuth-based servers (Google services)
+        if (connection.auth_type?.includes('oauth') || connection.auth_type?.includes('oauth2')) {
+          const providerMap = {
+            'gmail': 'google-gmail',
+            'gdrive': 'google-drive',
+            'gsheets': 'google-sheets',
+            'slack': 'slack',
+            'salesforce': 'salesforce',
+            'teams': 'microsoft-teams'
+          };
+
+          const integrationProvider = providerMap[connection.server_key] || connection.auth_provider || connection.server_key;
+
+          const integrationResult = query(
+            'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
+            [req.user.userId, integrationProvider]
+          );
+
+          if (integrationResult.rows.length > 0) {
+            const integration = integrationResult.rows[0];
+            
+            // Inject tokens based on server type
+            if (connection.server_key === 'gmail') {
+              envVars.GMAIL_ACCESS_TOKEN = integration.access_token;
+              envVars.GMAIL_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+              envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+            } else if (connection.server_key === 'gdrive' || connection.server_key === 'gsheets') {
+              // Google Drive and Sheets use @modelcontextprotocol/server-gdrive
+              // They typically use GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN
+              envVars.GOOGLE_ACCESS_TOKEN = integration.access_token;
+              envVars.GOOGLE_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+              envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+            } else {
+              // Generic OAuth tokens
+              envVars.ACCESS_TOKEN = integration.access_token;
+              envVars.REFRESH_TOKEN = integration.refresh_token;
+            }
+            
+            console.log(`[Chat MCP] OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
+          } else {
+            console.warn(`[Chat MCP] No OAuth tokens found for ${connection.name} (provider: ${integrationProvider})`);
+            console.warn(`[Chat MCP] Please complete OAuth flow first for ${connection.name}`);
           }
         }
 

@@ -146,8 +146,8 @@ router.post('/connections', authenticateToken, async (req, res) => {
       // Mapper les server_keys vers les providers dans integrations
       const providerMap = {
         'gmail': 'google-gmail',
-        'gdrive': 'google',
-        'gsheet': 'google',
+        'gdrive': 'google-drive',
+        'gsheets': 'google-sheets',
         'slack': 'slack',
         'salesforce': 'salesforce',
         'teams': 'microsoft-teams'
