@@ -117,11 +117,23 @@ export const ChatInputAdvanced: React.FC<ChatInputAdvancedProps> = ({
       textareaRef.current?.focus();
     } catch (error: any) {
       console.error('Error transcribing audio:', error);
-      if (error.message.includes('OpenAI API key')) {
-        alert('Please configure your OpenAI API key in MCP Tools to use voice input.');
+
+      // Ne jamais afficher les clés API ou informations sensibles
+      let userMessage = 'Failed to transcribe audio. Please try again.';
+
+      if (error.message.includes('OpenAI API key') || error.message.includes('Invalid') || error.message.includes('Authentication')) {
+        userMessage = 'Please configure your OpenAI API key in MCP Tools to use voice input.';
+      } else if (error.message.includes('rate limit')) {
+        userMessage = 'OpenAI API rate limit exceeded. Please try again in a few moments.';
+      } else if (error.message.includes('format')) {
+        userMessage = 'Audio format error. Please try recording again.';
       } else {
-        alert('Failed to transcribe audio: ' + error.message);
+        // Nettoyer le message d'erreur pour ne pas exposer de données sensibles
+        const cleanMessage = error.message.replace(/sk-[A-Za-z0-9_-]+/g, '[API_KEY]');
+        userMessage = 'Transcription error: ' + cleanMessage.substring(0, 100);
       }
+
+      alert(userMessage);
     } finally {
       setIsTranscribing(false);
     }

@@ -322,17 +322,32 @@ router.post('/speech-to-text', authenticateToken, (req, res, next) => {
       try {
         if (contentType && contentType.includes('application/json')) {
           const error = await response.json();
-          errorMessage = error.error?.message || error.message || `HTTP ${response.status}: ${response.statusText}`;
           console.error('[Speech-to-Text] Whisper API error details:', error);
+
+          // Messages d'erreur sécurisés (ne jamais exposer la clé API)
+          if (response.status === 401 || (error.error?.code === 'invalid_api_key')) {
+            errorMessage = 'Invalid OpenAI API key. Please verify your API key in MCP Tools settings.';
+          } else if (response.status === 429) {
+            errorMessage = 'OpenAI API rate limit exceeded. Please try again in a few moments.';
+          } else if (response.status === 400) {
+            errorMessage = error.error?.message || 'Bad request to Whisper API. Please check your audio file format.';
+          } else {
+            errorMessage = error.error?.message || error.message || `Whisper API error (${response.status})`;
+          }
         } else {
-          // Si la réponse n'est pas du JSON, lire le texte brut
+          // Si la réponse n'est pas du JSON, lire le texte brut (limité pour sécurité)
           const textError = await response.text();
-          errorMessage = `HTTP ${response.status}: ${textError || response.statusText}`;
-          console.error('[Speech-to-Text] Whisper API error (non-JSON):', textError);
+          console.error('[Speech-to-Text] Whisper API error (non-JSON):', textError.substring(0, 200));
+
+          if (response.status === 401) {
+            errorMessage = 'Authentication failed. Please check your OpenAI API key.';
+          } else {
+            errorMessage = `Whisper API error (${response.status}). Please try again.`;
+          }
         }
       } catch (parseError) {
         console.error('[Speech-to-Text] Error parsing error response:', parseError);
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        errorMessage = `Whisper API error (${response.status}). Please try again.`;
       }
       throw new Error(errorMessage);
     }
