@@ -108,8 +108,8 @@ export const ChatInputAdvanced: React.FC<ChatInputAdvancedProps> = ({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Transcription failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Transcription failed');
       }
 
       const data = await response.json();

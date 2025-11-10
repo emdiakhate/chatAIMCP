@@ -36,8 +36,9 @@ app.use(cors({
   credentials: true,
 }));
 
-// Parser JSON
+// Parser JSON (express.json() ne parse que application/json, pas multipart/form-data)
 app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Initialisation de la base de données
 console.log('🔄 Initialisation de la base de données SQLite avec MCP...');

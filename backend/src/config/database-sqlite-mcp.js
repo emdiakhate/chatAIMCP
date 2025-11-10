@@ -70,6 +70,7 @@ export const initDatabase = () => {
       expires_at TEXT,
       scopes TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_id, provider),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -99,14 +100,15 @@ export const initDatabase = () => {
             expires_at TEXT,
             scopes TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, provider),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
           );
         `);
         
         // Copier les données existantes (scopes peut être NULL maintenant)
-        db.exec(`INSERT INTO integrations_new (id, user_id, provider, access_token, refresh_token, expires_at, scopes, created_at)
-                 SELECT id, user_id, provider, access_token, refresh_token, expires_at, scopes, created_at FROM integrations;`);
+        db.exec(`INSERT INTO integrations_new (id, user_id, provider, access_token, refresh_token, expires_at, scopes, created_at, updated_at)
+                 SELECT id, user_id, provider, access_token, refresh_token, expires_at, scopes, created_at, created_at FROM integrations;`);
         
         // Remplacer l'ancienne table
         db.exec(`DROP TABLE integrations;`);
@@ -121,6 +123,25 @@ export const initDatabase = () => {
   } catch (e) {
     // La migration a échoué, mais ce n'est pas grave si la table est déjà correcte
     console.log('ℹ️  Migration integrations:', e.message);
+  }
+
+  // Migration: ajouter updated_at si elle n'existe pas
+  try {
+    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='integrations'").get();
+    if (tableExists) {
+      const tableInfo = db.prepare("PRAGMA table_info(integrations)").all();
+      const updatedAtColumn = tableInfo.find(col => col.name === 'updated_at');
+      
+      if (!updatedAtColumn) {
+        console.log('🔄 Migration: Ajout de la colonne updated_at à integrations...');
+        db.exec(`ALTER TABLE integrations ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP;`);
+        // Mettre à jour les valeurs existantes
+        db.exec(`UPDATE integrations SET updated_at = created_at WHERE updated_at IS NULL;`);
+        console.log('✅ Colonne updated_at ajoutée à integrations');
+      }
+    }
+  } catch (e) {
+    console.log('ℹ️  Migration updated_at:', e.message);
   }
 
   // === TABLES LLM USAGE ===

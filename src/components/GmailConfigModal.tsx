@@ -83,14 +83,14 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
       let currentStep = 'oauth';
       const checkPopup = setInterval(() => {
         try {
-          if (popup?.closed) {
-            clearInterval(checkPopup);
+        if (popup?.closed) {
+          clearInterval(checkPopup);
             window.removeEventListener('message', handleMessage);
             // Give a moment for postMessage to arrive
-            setTimeout(() => {
+          setTimeout(() => {
               // If still in oauth step, assume it was closed manually
               setError('Authorization was cancelled or the popup was closed.');
-              setLoading(false);
+            setLoading(false);
             }, 1000);
           }
         } catch (e) {

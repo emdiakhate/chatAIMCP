@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Menu, Settings, Puzzle, Store, Edit2, Check, X } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
-import { ChatInput } from './ChatInput';
+import { ChatInputAdvanced as ChatInput } from './ChatInputAdvanced';
 import { api } from '../../lib/api';
 
 interface Message {
@@ -67,14 +67,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, attachedFiles?: File[]) => {
     if (!content.trim() || !conversationId) return;
 
     // Afficher immédiatement le message utilisateur (optimistic UI)
     const optimisticUserMessage: Message = {
       id: Date.now(), // ID temporaire
       role: 'user',
-      content: content.trim(),
+      content: content.trim() + (attachedFiles && attachedFiles.length > 0 
+        ? `\n[${attachedFiles.length} fichier(s) joint(s)]` 
+        : ''),
       created_at: new Date().toISOString(),
     };
 
@@ -82,6 +84,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setIsLoading(true);
 
     try {
+      // TODO: Gérer l'upload des fichiers si nécessaire
+      // Pour l'instant, on envoie juste le message texte
       const response = await api.sendMessage(conversationId, content);
       const updatedMessages = response.messages || [];
       setMessages(updatedMessages);
@@ -292,6 +296,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 ? 'Envoyer un message...'
                 : 'Créez une nouvelle conversation pour commencer'
             }
+            conversationId={conversationId}
           />
         </div>
       </div>

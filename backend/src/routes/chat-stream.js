@@ -17,7 +17,16 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB max
+    fileSize: 25 * 1024 * 1024, // 25MB max (limite Whisper)
+    fieldSize: 10 * 1024 * 1024 // 10MB pour les champs
+  },
+  fileFilter: (req, file, cb) => {
+    // Accepter tous les types de fichiers audio
+    if (file.mimetype.startsWith('audio/') || file.mimetype === 'application/octet-stream') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only audio files are allowed'), false);
+    }
   }
 });
 
@@ -198,17 +207,54 @@ router.post('/stream', authenticateToken, async (req, res) => {
  * POST /api/speech-to-text
  * Transcrit un fichier audio en texte avec OpenAI Whisper
  */
-router.post('/speech-to-text', authenticateToken, upload.single('audio'), async (req, res) => {
+router.post('/speech-to-text', authenticateToken, (req, res, next) => {
+  // Middleware pour gérer les erreurs multer
+  upload.single('audio')(req, res, (err) => {
+    if (err) {
+      console.error('[Speech-to-Text] Multer error:', err);
+      return res.status(400).json({
+        success: false,
+        error: 'Could not parse multipart form: ' + err.message
+      });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
+    // Vérifier que le fichier a été reçu
     if (!req.file) {
+      console.error('[Speech-to-Text] No file received. Request body:', req.body);
+      console.error('[Speech-to-Text] Content-Type:', req.headers['content-type']);
       return res.status(400).json({
         success: false,
         error: 'Audio file is required'
       });
     }
 
+    console.log('[Speech-to-Text] File received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      hasBuffer: !!req.file.buffer,
+      bufferLength: req.file.buffer?.length || 0
+    });
+
+    // Vérifier que le buffer n'est pas vide
+    if (!req.file.buffer || req.file.buffer.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Audio file buffer is empty. Please try recording again.'
+      });
+    }
+
     // Récupérer la clé API OpenAI de l'utilisateur
     const openaiApiKey = getApiKey(req.user.userId, 'openai');
+
+    console.log('[Speech-to-Text] OpenAI API key check:', {
+      userId: req.user.userId,
+      hasKey: !!openaiApiKey,
+      keyPrefix: openaiApiKey ? openaiApiKey.substring(0, 7) + '...' : 'none'
+    });
 
     if (!openaiApiKey) {
       return res.status(400).json({
@@ -220,38 +266,97 @@ router.post('/speech-to-text', authenticateToken, upload.single('audio'), async 
     // Appeler l'API Whisper d'OpenAI
     const FormData = (await import('form-data')).default;
     const formData = new FormData();
+    
+    // Whisper accepte: mp3, mp4, mpeg, mpga, m4a, wav, webm
+    // S'assurer que le nom de fichier a la bonne extension
+    let filename = req.file.originalname || 'audio.webm';
+    if (!filename.match(/\.(mp3|mp4|mpeg|mpga|m4a|wav|webm)$/i)) {
+      // Si l'extension n'est pas reconnue, utiliser webm par défaut
+      filename = filename.replace(/\.[^.]+$/, '') + '.webm';
+    }
+    
+    console.log('[Speech-to-Text] Sending to Whisper:', {
+      filename,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      language: req.body.language || 'auto'
+    });
+    
     formData.append('file', req.file.buffer, {
-      filename: req.file.originalname || 'audio.webm',
-      contentType: req.file.mimetype
+      filename: filename,
+      contentType: req.file.mimetype || 'audio/webm'
     });
     formData.append('model', 'whisper-1');
     if (req.body.language) {
       formData.append('language', req.body.language); // 'fr' ou 'en'
     }
 
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        ...formData.getHeaders()
-      },
-      body: formData
-    });
+    console.log('[Speech-to-Text] Calling Whisper API...');
+    
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          ...formData.getHeaders()
+        },
+        body: formData
+      });
+      
+      console.log('[Speech-to-Text] Whisper API response status:', response.status, response.statusText);
+    } catch (fetchError) {
+      console.error('[Speech-to-Text] Fetch error:', fetchError);
+      throw new Error(`Failed to connect to Whisper API: ${fetchError.message}`);
+    }
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Whisper API error');
+      let errorMessage = 'Whisper API error';
+      const contentType = response.headers.get('content-type');
+      console.error('[Speech-to-Text] Whisper API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: contentType
+      });
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json();
+          errorMessage = error.error?.message || error.message || `HTTP ${response.status}: ${response.statusText}`;
+          console.error('[Speech-to-Text] Whisper API error details:', error);
+        } else {
+          // Si la réponse n'est pas du JSON, lire le texte brut
+          const textError = await response.text();
+          errorMessage = `HTTP ${response.status}: ${textError || response.statusText}`;
+          console.error('[Speech-to-Text] Whisper API error (non-JSON):', textError);
+        }
+      } catch (parseError) {
+        console.error('[Speech-to-Text] Error parsing error response:', parseError);
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
+
+    console.log('[Speech-to-Text] Transcription successful:', {
+      textLength: data.text?.length || 0,
+      textPreview: data.text?.substring(0, 50) || 'no text'
+    });
 
     res.json({
       success: true,
       text: data.text
     });
   } catch (error) {
-    console.error('Error in speech-to-text:', error);
-    res.status(500).json({
+    console.error('[Speech-to-Text] Error:', error);
+    console.error('[Speech-to-Text] Error stack:', error.stack);
+    
+    // Ne pas confondre les erreurs de l'API Whisper avec les erreurs multer
+    // Les erreurs multer sont déjà gérées dans le middleware précédent
+    const statusCode = error.message?.includes('HTTP 4') ? 400 : 500;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to transcribe audio'
     });
