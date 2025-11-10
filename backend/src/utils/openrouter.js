@@ -87,6 +87,110 @@ export async function chatCompletion(apiKey, messages, options = {}) {
 }
 
 /**
+ * Envoie un message à OpenRouter avec streaming
+ * @param {string} apiKey - Clé API OpenRouter
+ * @param {Array} messages - Historique des messages au format OpenAI
+ * @param {Object} options - Options supplémentaires
+ * @param {Function} onChunk - Callback appelé pour chaque chunk de texte
+ * @returns {Promise<Object>} Réponse complète
+ */
+export async function chatCompletionStream(apiKey, messages, options = {}, onChunk) {
+  const {
+    model = DEFAULT_MODEL,
+    temperature = 0.7,
+    max_tokens = 4096,
+    tools = null,
+    tool_choice = null
+  } = options;
+
+  const body = {
+    model,
+    messages,
+    temperature,
+    max_tokens,
+    stream: true  // Enable streaming
+  };
+
+  // Ajouter les outils si fournis
+  if (tools && tools.length > 0) {
+    body.tools = tools;
+    if (tool_choice) {
+      body.tool_choice = tool_choice;
+    }
+  }
+
+  const apiUrl = getApiUrl(apiKey);
+  const isGroq = apiKey && apiKey.startsWith('gsk_');
+
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  if (!isGroq) {
+    headers['HTTP-Referer'] = process.env.FRONTEND_URL || 'http://localhost:5173';
+    headers['X-Title'] = 'ChatAI MCP';
+  }
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  // Parse SSE stream
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullContent = '';
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullContent += content;
+              if (onChunk) onChunk(content);
+            }
+          } catch (e) {
+            console.warn('Failed to parse SSE chunk:', e);
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return {
+    choices: [{
+      message: {
+        role: 'assistant',
+        content: fullContent
+      }
+    }]
+  };
+}
+
+/**
  * Convertit l'historique de messages au format Gemini vers le format OpenAI
  * @param {Array} geminiHistory - Historique au format Gemini
  * @returns {Array} Historique au format OpenAI

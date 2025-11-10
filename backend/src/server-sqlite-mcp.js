@@ -13,6 +13,7 @@ import googleCallbackRoutes from './routes/googleCallback.js';
 import mcpServersRoutes from './routes/mcp-servers-sqlite.js';
 import mcpConnectionsRoutes from './routes/mcp-connections-sqlite.js';
 import chatMCPRoutes from './routes/chat-mcp-sqlite.js';
+import chatStreamRoutes from './routes/chat-stream.js';
 import mcpMemoryRoutes from './routes/mcp-memory-sqlite.js';
 import oauthGoogleRoutes from './routes/oauth-google.js';
 import oauthSlackRoutes from './routes/oauth-slack.js';
@@ -56,6 +57,7 @@ app.use('/api/mcp', mcpServersRoutes);
 app.use('/api/mcp', mcpConnectionsRoutes);
 app.use('/api/mcp', mcpMemoryRoutes);
 app.use('/api', chatMCPRoutes);
+app.use('/api/chat', chatStreamRoutes); // Routes de streaming et features avancées
 
 // === ROUTES OAUTH ===
 app.use('/api/auth', oauthGoogleRoutes);

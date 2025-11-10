@@ -285,47 +285,53 @@ router.post('/memory/store', authenticateToken, async (req, res) => {
         }
       }
 
-      console.log(`[Memory] Add observations result:`, result);
+      console.log(`[Memory] Add observations completed successfully`);
 
-      if (!result) {
-        throw new Error('Failed to store memory: No result from add_observations');
-      }
-
-      // Logger dans mcp_tool_calls (seulement si succès)
-      try {
-        // Sérialiser le résultat de manière sécurisée
-        let resultJson = '{}';
+      // Logger dans mcp_tool_calls de manière non-bloquante (en arrière-plan)
+      setImmediate(() => {
         try {
-          resultJson = JSON.stringify(result);
-        } catch (jsonError) {
-          console.warn('[Memory] Could not stringify result, using summary:', jsonError.message);
-          resultJson = JSON.stringify({ 
-            success: true, 
-            note: 'Result could not be serialized',
-            hasContent: !!result?.content 
-          });
+          // Préparer un résultat JSON sécurisé et limité en taille
+          let resultJson = '{"success": true}';
+          if (result && typeof result === 'object') {
+            try {
+              const safeResult = {
+                success: true,
+                hasContent: !!result.content,
+                contentType: result.content?.[0]?.type || 'unknown'
+              };
+              resultJson = JSON.stringify(safeResult);
+            } catch (e) {
+              // Utiliser le fallback si la sérialisation échoue
+            }
+          }
+
+          // Limiter la taille des paramètres aussi
+          const safeParams = {
+            entity_name: entityName,
+            content_preview: memoryContent.substring(0, 100) + (memoryContent.length > 100 ? '...' : '')
+          };
+
+          query(`
+            INSERT INTO mcp_tool_calls (
+              user_id, server_id, tool_name, parameters, result, success, execution_time, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          `, [
+            userId,
+            connection.server_id,
+            'add_observations',
+            JSON.stringify(safeParams),
+            resultJson,
+            1,
+            0
+          ]);
+          console.log('[Memory] Tool call logged successfully');
+        } catch (logError) {
+          // Ne pas bloquer si le logging échoue
+          console.warn('[Memory] Failed to log tool call (non-critical):', logError.message);
         }
+      });
 
-        query(`
-          INSERT INTO mcp_tool_calls (
-            user_id, server_id, tool_name, parameters, result, success, execution_time, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `, [
-          userId,
-          connection.server_id,
-          'add_observations',
-          JSON.stringify({ content: memoryContent, entity_name: entityName }),
-          resultJson,
-          1,
-          0
-        ]);
-        console.log('[Memory] Tool call logged successfully');
-      } catch (logError) {
-        console.error('[Memory] Error logging tool call (non-critical):', logError);
-        // Ne pas faire échouer la requête si le logging échoue
-      }
-
-      // Envoyer la réponse de succès
+      // Envoyer la réponse de succès immédiatement (sans attendre le logging)
       return res.json({
         success: true,
         memory: {

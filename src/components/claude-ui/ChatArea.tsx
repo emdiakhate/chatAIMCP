@@ -70,6 +70,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || !conversationId) return;
 
+    // Afficher immédiatement le message utilisateur (optimistic UI)
+    const optimisticUserMessage: Message = {
+      id: Date.now(), // ID temporaire
+      role: 'user',
+      content: content.trim(),
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticUserMessage]);
     setIsLoading(true);
 
     try {
@@ -81,6 +90,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       await loadMessages();
     } catch (error) {
       console.error('Failed to send message:', error);
+      // Retirer le message optimiste en cas d'erreur
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMessage.id));
       alert('Failed to send message. Please try again.');
     } finally {
       setIsLoading(false);
