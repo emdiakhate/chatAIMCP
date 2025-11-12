@@ -24,7 +24,7 @@ import { readFile as readFileAdvanced, getFileMetadata } from '../../src/utils/f
 // Get allowed paths from environment or use default
 const ALLOWED_PATHS = process.env.FILESYSTEM_ALLOWED_PATHS
   ? process.env.FILESYSTEM_ALLOWED_PATHS.split(',').map(p => p.trim())
-  : [process.cwd()];
+  : [process.cwd(), '/tmp/chatai-uploads'];
 
 console.error('Filesystem MCP Server starting...');
 console.error('Allowed paths:', ALLOWED_PATHS);

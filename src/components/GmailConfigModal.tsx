@@ -18,6 +18,80 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Configuration spécifique selon le scope
+  const getServiceConfig = () => {
+    switch (scope) {
+      case 'drive':
+        return {
+          name: 'Google Drive',
+          icon: '📁',
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-100',
+          description: 'Connectez votre compte Google Drive',
+          features: [
+            { title: 'Rechercher des fichiers', description: 'Recherchez dans vos fichiers et dossiers' },
+            { title: 'Lire le contenu', description: 'Accédez au contenu de vos documents' },
+            { title: 'Créer et modifier', description: 'Créez et modifiez des fichiers dans Drive' },
+          ],
+          permissions: [
+            'Voir, créer et modifier vos fichiers Google Drive',
+            'Rechercher dans vos dossiers et fichiers',
+          ],
+          tryAsking: [
+            '"Recherche mes fichiers contenant \'rapport\'"',
+            '"Montre-moi mes fichiers récents"',
+            '"Crée un nouveau document dans Drive"',
+          ],
+        };
+      case 'sheets':
+        return {
+          name: 'Google Sheets',
+          icon: '📊',
+          color: 'text-green-600',
+          bgColor: 'bg-green-100',
+          description: 'Connectez votre compte Google Sheets',
+          features: [
+            { title: 'Lire les données', description: 'Accédez aux données de vos feuilles' },
+            { title: 'Créer des feuilles', description: 'Créez de nouvelles feuilles de calcul' },
+            { title: 'Modifier les données', description: 'Mettez à jour vos données' },
+          ],
+          permissions: [
+            'Voir, créer et modifier vos feuilles Google Sheets',
+            'Lire et écrire des données dans vos feuilles',
+          ],
+          tryAsking: [
+            '"Affiche les données de ma feuille de budget"',
+            '"Crée une nouvelle feuille de calcul"',
+            '"Ajoute une ligne dans ma feuille d\'inventaire"',
+          ],
+        };
+      default: // gmail
+        return {
+          name: 'Gmail',
+          icon: '📧',
+          color: 'text-red-600',
+          bgColor: 'bg-red-100',
+          description: 'Connectez votre compte Gmail',
+          features: [
+            { title: 'Rechercher des emails', description: 'Utilisez la recherche puissante de Gmail' },
+            { title: 'Lire le contenu', description: 'Accédez au contenu complet des emails' },
+            { title: 'Envoyer des emails', description: 'Composez et envoyez des emails' },
+          ],
+          permissions: [
+            'Lire, composer, envoyer et supprimer des emails depuis Gmail',
+            'Voir les métadonnées des emails (expéditeur, sujet, date)',
+          ],
+          tryAsking: [
+            '"Recherche mes emails de john@example.com"',
+            '"Trouve les emails non lus de la semaine dernière"',
+            '"Montre-moi les emails avec le sujet \'facture\'"',
+          ],
+        };
+    }
+  };
+
+  const serviceConfig = getServiceConfig();
+
   if (!isOpen) return null;
 
   const handleOAuthStart = async () => {
@@ -155,12 +229,12 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <Mail className="w-6 h-6 text-red-600" />
+            <div className={`w-10 h-10 ${serviceConfig.bgColor} rounded-lg flex items-center justify-center text-2xl`}>
+              {serviceConfig.icon}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Configure Gmail</h2>
-              <p className="text-sm text-gray-600">Connect your Gmail account</p>
+              <h2 className="text-xl font-bold text-gray-900">Configurer {serviceConfig.name}</h2>
+              <p className="text-sm text-gray-600">{serviceConfig.description}</p>
             </div>
           </div>
           <button
@@ -179,53 +253,36 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                 <div className="flex gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">OAuth Setup Required</p>
+                    <p className="font-medium mb-1">Configuration OAuth requise</p>
                     <p>
-                      To use Gmail integration, you need to authorize ChatAI to access your Gmail account.
-                      This is done securely through Google's OAuth 2.0 system.
+                      Pour utiliser {serviceConfig.name}, vous devez autoriser ChatAI à accéder à votre compte.
+                      Ceci est fait de manière sécurisée via le système OAuth 2.0 de Google.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900">What you'll be able to do:</h3>
+                <h3 className="font-semibold text-gray-900">Ce que vous pourrez faire :</h3>
                 <div className="grid gap-3">
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">Search emails</p>
-                      <p className="text-sm text-gray-600">
-                        Use Gmail's powerful search syntax to find emails
-                      </p>
+                  {serviceConfig.features.map((feature, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-gray-900">{feature.title}</p>
+                        <p className="text-sm text-gray-600">{feature.description}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">Read email content</p>
-                      <p className="text-sm text-gray-600">
-                        Access full email content, attachments, and metadata
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">Send emails</p>
-                      <p className="text-sm text-gray-600">
-                        Compose and send emails on your behalf
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="font-semibold text-gray-900 mb-2">Permissions requested:</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">Permissions demandées :</h3>
                 <ul className="text-sm text-gray-600 space-y-1 ml-4 list-disc">
-                  <li>Read, compose, send, and delete emails from Gmail</li>
-                  <li>View email metadata (sender, subject, date)</li>
+                  {serviceConfig.permissions.map((permission, index) => (
+                    <li key={index}>{permission}</li>
+                  ))}
                 </ul>
               </div>
 
@@ -245,14 +302,14 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
 
           {step === 'oauth' && (
             <div className="text-center py-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                <Mail className="w-8 h-8 text-blue-600 animate-pulse" />
+              <div className={`inline-flex items-center justify-center w-16 h-16 ${serviceConfig.bgColor} rounded-full mb-4 text-4xl`}>
+                {serviceConfig.icon}
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Authorizing with Google...
+                Autorisation avec Google...
               </h3>
               <p className="text-gray-600">
-                Please complete the authorization in the popup window.
+                Veuillez compléter l'autorisation dans la fenêtre popup.
               </p>
             </div>
           )}
@@ -263,17 +320,17 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Gmail Connected Successfully!
+                {serviceConfig.name} connecté avec succès !
               </h3>
               <p className="text-gray-600 mb-6">
-                You can now use Gmail in your conversations.
+                Vous pouvez maintenant utiliser {serviceConfig.name} dans vos conversations.
               </p>
               <div className="bg-gray-50 rounded-lg p-4 text-left">
-                <p className="text-sm font-medium text-gray-900 mb-2">Try asking:</p>
+                <p className="text-sm font-medium text-gray-900 mb-2">Essayez de demander :</p>
                 <ul className="text-sm text-gray-600 space-y-1 ml-4 list-disc">
-                  <li>"Search my emails from john@example.com"</li>
-                  <li>"Find unread emails from last week"</li>
-                  <li>"Show me emails with subject 'invoice'"</li>
+                  {serviceConfig.tryAsking.map((example, index) => (
+                    <li key={index}>{example}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -300,7 +357,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                   onClick={onClose}
                   className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  Cancel
+                  Annuler
                 </button>
                 <button
                   onClick={() => {
@@ -310,7 +367,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                   disabled={loading}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  {loading ? 'Connecting...' : 'Connect Gmail'}
+                  {loading ? 'Connexion...' : `Connecter ${serviceConfig.name}`}
                 </button>
               </>
             )}
@@ -319,7 +376,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                 onClick={handleComplete}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Done
+                Terminé
               </button>
             )}
           </div>

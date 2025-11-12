@@ -726,6 +726,86 @@ class ApiClient {
 
     return response.json();
   }
+
+  // === FILE UPLOAD ===
+
+  /**
+   * Upload des fichiers vers le serveur
+   * @param files - Fichiers à uploader
+   * @returns Informations sur les fichiers uploadés
+   */
+  async uploadFiles(files: File[]) {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/files/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Échec de l\'upload des fichiers');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Liste les fichiers uploadés
+   */
+  async listUploadedFiles() {
+    const response = await fetch(`${API_BASE_URL}/files/list`, {
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Échec de la récupération de la liste des fichiers');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Supprime un fichier uploadé
+   * @param filename - Nom du fichier à supprimer
+   */
+  async deleteUploadedFile(filename: string) {
+    const response = await fetch(`${API_BASE_URL}/files/${filename}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeader(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Échec de la suppression du fichier');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Nettoie les fichiers plus anciens que X heures
+   * @param maxAgeHours - Âge maximum des fichiers en heures
+   */
+  async cleanupFiles(maxAgeHours: number = 24) {
+    const response = await fetch(`${API_BASE_URL}/files/cleanup`, {
+      method: 'POST',
+      headers: this.getAuthHeader(),
+      body: JSON.stringify({ maxAgeHours }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Échec du nettoyage des fichiers');
+    }
+
+    return response.json();
+  }
 }
 
 export const api = new ApiClient();

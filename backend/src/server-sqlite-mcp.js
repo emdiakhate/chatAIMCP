@@ -21,6 +21,7 @@ import oauthSalesforceRoutes from './routes/oauth-salesforce.js';
 import oauthTeamsRoutes from './routes/oauth-teams.js';
 import authApiKeyRoutes from './routes/auth-apikey.js';
 import llmRoutes from './routes/llm.js';
+import fileUploadRoutes from './routes/file-upload.js';
 
 // Gestionnaires MCP
 import mcpClientManager from './mcp/client-manager.js';
@@ -71,6 +72,9 @@ app.use('/api/auth', authApiKeyRoutes);
 
 // === ROUTES LLM ===
 app.use('/api/llm', llmRoutes);
+
+// === ROUTES FILE UPLOAD ===
+app.use('/api/files', fileUploadRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

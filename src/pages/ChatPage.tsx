@@ -108,7 +108,7 @@ export const ChatPage: React.FC = () => {
 
   const sendMessage = async (content: string) => {
     let conversation = currentConversation;
-    
+
     // Si pas de conversation, en créer une nouvelle
     if (!conversation) {
       try {
@@ -131,20 +131,74 @@ export const ChatPage: React.FC = () => {
       content: content,
       created_at: new Date().toISOString(),
     };
-    setMessages([...messages, userMessage]);
+    const currentMessages = [...messages, userMessage];
+    setMessages(currentMessages);
     setSending(true);
 
+    // Ajouter un message assistant vide pour le streaming
+    const assistantMessage: Message = {
+      id: Date.now() + 1, // ID temporaire
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    };
+    setMessages([...currentMessages, assistantMessage]);
+
     try {
-      const response = await api.sendMessage(conversation.id, content);
-      const updatedMessages = response.messages || [];
-      setMessages(updatedMessages);
-      await loadConversations();
+      // Utiliser le streaming pour une meilleure expérience utilisateur
+      api.sendMessageStream(
+        conversation.id,
+        content,
+        // onToken: ajouter chaque token au message assistant
+        (token: string) => {
+          setMessages((prevMessages) => {
+            const updatedMessages = [...prevMessages];
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
+            if (lastMessage && lastMessage.role === 'assistant') {
+              lastMessage.content += token;
+            }
+            return updatedMessages;
+          });
+        },
+        // onComplete: mettre à jour avec l'ID réel et le contenu complet
+        (fullContent: string, messageId: number) => {
+          setMessages((prevMessages) => {
+            const updatedMessages = [...prevMessages];
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
+            if (lastMessage && lastMessage.role === 'assistant') {
+              lastMessage.id = messageId;
+              lastMessage.content = fullContent;
+            }
+            return updatedMessages;
+          });
+          setSending(false);
+          loadConversations();
+        },
+        // onError: gérer les erreurs
+        (error: Error) => {
+          console.error('Failed to send message:', error);
+          // Retirer le message assistant temporaire en cas d'erreur
+          setMessages(currentMessages);
+          alert(error.message || 'Failed to send message');
+          setSending(false);
+        },
+        // onUserMessage: mettre à jour l'ID du message utilisateur
+        (messageId: number) => {
+          setMessages((prevMessages) => {
+            const updatedMessages = [...prevMessages];
+            const userMsg = updatedMessages.find((m) => m.role === 'user' && m.id === userMessage.id);
+            if (userMsg) {
+              userMsg.id = messageId;
+            }
+            return updatedMessages;
+          });
+        }
+      );
     } catch (error: any) {
       console.error('Failed to send message:', error);
-      // En cas d'erreur, retirer le message utilisateur temporaire
+      // En cas d'erreur, retirer les messages temporaires
       setMessages(messages);
       alert(error.message || 'Failed to send message');
-    } finally {
       setSending(false);
     }
   };

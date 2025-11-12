@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-3 px-4 rounded-lg transition flex items-center justify-center"
         >
           <Plus className="w-5 h-5 mr-2" />
-          New Chat
+          Nouveau Chat
         </button>
       </div>
 
@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-full flex items-center justify-center px-4 py-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition font-medium"
           >
             <Boxes className="w-4 h-4 mr-2" />
-            My Tools
+            Mes Outils
           </button>
         )}
         <button
@@ -85,14 +85,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="w-full flex items-center justify-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
         >
           <Settings className="w-4 h-4 mr-2" />
-          Integrations
+          Intégrations
         </button>
         <button
           onClick={onLogout}
           className="w-full flex items-center justify-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
         >
           <LogOut className="w-4 h-4 mr-2" />
-          Logout
+          Déconnexion
         </button>
       </div>
     </div>
