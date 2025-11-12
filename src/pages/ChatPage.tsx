@@ -8,6 +8,7 @@ import { ChatInput } from '../components/ChatInput';
 import { IntegrationsModal } from '../components/IntegrationsModal';
 import { MCPToolsPanel } from '../components/MCPToolsPanel';
 import { MCPMarketplace } from '../components/MCPMarketplace';
+import { UserProfile } from '../components/UserProfile';
 import { Loader2 } from 'lucide-react';
 
 export interface Message {
@@ -37,7 +38,7 @@ export interface Source {
 }
 
 export const ChatPage: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -46,6 +47,7 @@ export const ChatPage: React.FC = () => {
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showMCPPanel, setShowMCPPanel] = useState(false);
   const [showMCPMarketplace, setShowMCPMarketplace] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -213,7 +215,9 @@ export const ChatPage: React.FC = () => {
         onDeleteConversation={deleteConversation}
         onShowIntegrations={() => setShowIntegrations(true)}
         onShowMCPPanel={() => setShowMCPPanel(true)}
+        onShowProfile={() => setShowUserProfile(true)}
         onLogout={logout}
+        userEmail={user?.email || ''}
       />
 
       <div className="flex-1 flex flex-col">
@@ -272,6 +276,14 @@ export const ChatPage: React.FC = () => {
           onConnectionCreated={() => {
             // Refresh connections when coming back to tools panel
           }}
+        />
+      )}
+
+      {showUserProfile && (
+        <UserProfile
+          isOpen={showUserProfile}
+          onClose={() => setShowUserProfile(false)}
+          userEmail={user?.email || ''}
         />
       )}
     </div>

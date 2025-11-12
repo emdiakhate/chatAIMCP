@@ -3,6 +3,7 @@ import db, { query } from '../config/database-sqlite-mcp.js';
 import mcpClientManager from '../mcp/client-manager.js';
 import toolExecutor from '../mcp/tool-executor.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { refreshGoogleTokenIfNeeded } from '../utils/google.js';
 
 const router = express.Router();
 
@@ -161,14 +162,33 @@ router.post('/connections', authenticateToken, async (req, res) => {
       );
 
       if (integrationResult.rows.length > 0) {
-        const integration = integrationResult.rows[0];
-        finalCredentials = {
-          ...finalCredentials,
-          accessToken: integration.access_token,
-          refreshToken: integration.refresh_token,
-          expiresAt: integration.expires_at
-        };
-        console.log(`[MCP Connection] Using OAuth tokens from integrations for ${server.name} (provider: ${integrationProvider})`);
+        try {
+          // Rafraîchir le token si nécessaire (pour les providers Google)
+          let tokenData;
+          if (integrationProvider.startsWith('google-')) {
+            tokenData = await refreshGoogleTokenIfNeeded(req.user.userId, integrationProvider);
+            console.log(`[MCP Connection] Token refreshed/validated for ${server.name}`);
+          } else {
+            // Pour les autres providers, utiliser les tokens tels quels
+            const integration = integrationResult.rows[0];
+            tokenData = {
+              access_token: integration.access_token,
+              refresh_token: integration.refresh_token,
+              expires_at: integration.expires_at
+            };
+          }
+
+          finalCredentials = {
+            ...finalCredentials,
+            accessToken: tokenData.access_token,
+            refreshToken: tokenData.refresh_token,
+            expiresAt: tokenData.expires_at
+          };
+          console.log(`[MCP Connection] Using OAuth tokens from integrations for ${server.name} (provider: ${integrationProvider})`);
+        } catch (error) {
+          console.error(`[MCP Connection] Error refreshing token for ${server.name}:`, error.message);
+          console.warn(`[MCP Connection] Token may be expired. Please re-authenticate for ${server.name}`);
+        }
       } else {
         console.warn(`[MCP Connection] No OAuth tokens found in integrations for provider: ${integrationProvider}`);
         console.warn(`[MCP Connection] Please complete OAuth flow first for ${server.name}`);

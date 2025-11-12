@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, MessageSquare, Trash2, Settings, LogOut, Boxes } from 'lucide-react';
 import { Conversation } from '../pages/ChatPage';
+import { UserProfileButton } from './UserProfileButton';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -10,7 +11,9 @@ interface SidebarProps {
   onDeleteConversation: (id: number) => void;
   onShowIntegrations: () => void;
   onShowMCPPanel?: () => void;
+  onShowProfile: () => void;
   onLogout: () => void;
+  userEmail: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -21,7 +24,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteConversation,
   onShowIntegrations,
   onShowMCPPanel,
+  onShowProfile,
   onLogout,
+  userEmail,
 }) => {
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
@@ -71,6 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="border-t border-gray-200 p-4 space-y-2">
+        {/* User Profile Button */}
+        <UserProfileButton userEmail={userEmail} onClick={onShowProfile} />
+
         {onShowMCPPanel && (
           <button
             onClick={onShowMCPPanel}
