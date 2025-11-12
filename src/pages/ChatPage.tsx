@@ -112,14 +112,14 @@ export const ChatPage: React.FC = () => {
     // Si pas de conversation, en créer une nouvelle
     if (!conversation) {
       try {
-        const { conversation: newConv } = await api.createConversation('New Conversation');
+        const { conversation: newConv } = await api.createConversation('Nouvelle Conversation');
         setConversations([newConv, ...conversations]);
         setCurrentConversation(newConv);
         conversation = newConv;
         setMessages([]);
       } catch (error: any) {
         console.error('Failed to create conversation:', error);
-        alert(error.message || 'Failed to create conversation');
+        alert(error.message || 'Échec de la création de la conversation');
         return;
       }
     }
@@ -179,7 +179,7 @@ export const ChatPage: React.FC = () => {
           console.error('Failed to send message:', error);
           // Retirer le message assistant temporaire en cas d'erreur
           setMessages(currentMessages);
-          alert(error.message || 'Failed to send message');
+          alert(error.message || 'Échec de l\'envoi du message');
           setSending(false);
         },
         // onUserMessage: mettre à jour l'ID du message utilisateur
@@ -198,7 +198,7 @@ export const ChatPage: React.FC = () => {
       console.error('Failed to send message:', error);
       // En cas d'erreur, retirer les messages temporaires
       setMessages(messages);
-      alert(error.message || 'Failed to send message');
+      alert(error.message || 'Échec de l\'envoi du message');
       setSending(false);
     }
   };
@@ -228,16 +228,16 @@ export const ChatPage: React.FC = () => {
             <div className="flex items-center justify-center h-full">
               <div className="text-center max-w-md">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-                  Start a new conversation
+                  Commencer une nouvelle conversation
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Ask me anything! I can use your connected MCP tools to provide contextual answers.
+                  Posez-moi n'importe quelle question ! Je peux utiliser vos outils MCP connectés pour fournir des réponses contextuelles.
                 </p>
                 <button
                   onClick={() => setShowMCPPanel(true)}
                   className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Manage My Tools
+                  Gérer Mes Outils
                 </button>
               </div>
             </div>

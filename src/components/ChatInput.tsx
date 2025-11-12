@@ -42,7 +42,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled })
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me anything..."
+              placeholder="Posez-moi une question..."
               className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none transition"
               rows={1}
               disabled={disabled}
@@ -61,7 +61,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled })
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Press Enter to send, Shift + Enter for new line
+          Appuyez sur Entrée pour envoyer, Maj + Entrée pour nouvelle ligne
         </p>
       </form>
     </div>

@@ -10,7 +10,7 @@ export const ChatHeader: React.FC = () => {
         </div>
         <div>
           <h1 className="text-xl font-semibold text-gray-900">ChatAI Pro</h1>
-          <p className="text-sm text-gray-600">AI Assistant with Google Integrations</p>
+          <p className="text-sm text-gray-600">Assistant IA avec Intégrations Google</p>
         </div>
       </div>
     </header>

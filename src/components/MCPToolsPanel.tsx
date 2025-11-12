@@ -55,7 +55,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
   };
 
   const handleDisconnect = async (connectionId: number) => {
-    if (!confirm('Are you sure you want to disconnect this tool?')) return;
+    if (!confirm('Êtes-vous sûr de vouloir déconnecter cet outil ?')) return;
 
     try {
       await api.deleteMCPConnection(connectionId);
@@ -65,16 +65,16 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
         setTools([]);
       }
     } catch (error: any) {
-      alert('Failed to disconnect: ' + error.message);
+      alert('Échec de la déconnexion : ' + error.message);
     }
   };
 
   const handleTestConnection = async (connectionId: number) => {
     try {
       const response = await api.testMCPConnection(connectionId);
-      alert('Connection test successful! Tools available: ' + response.tools.length);
+      alert('Test de connexion réussi ! Outils disponibles : ' + response.tools.length);
     } catch (error: any) {
-      alert('Connection test failed: ' + error.message);
+      alert('Échec du test de connexion : ' + error.message);
     }
   };
 
@@ -112,8 +112,8 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Tools</h2>
-            <p className="text-sm text-gray-600 mt-1">Manage your MCP server connections</p>
+            <h2 className="text-2xl font-bold text-gray-900">Mes Outils</h2>
+            <p className="text-sm text-gray-600 mt-1">Gérez vos connexions aux serveurs MCP</p>
           </div>
           <button
             onClick={onClose}
@@ -132,7 +132,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                 onClick={onOpenMarketplace}
                 className="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors mb-4"
               >
-                + Add New Tool
+                + Ajouter un Nouvel Outil
               </button>
 
               {loading ? (
@@ -142,8 +142,8 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
               ) : connections.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-2">🔌</div>
-                  <p className="text-sm text-gray-500">No tools connected yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Click "Add New Tool" to get started</p>
+                  <p className="text-sm text-gray-500">Aucun outil connecté pour le moment</p>
+                  <p className="text-xs text-gray-400 mt-1">Cliquez sur "Ajouter un Nouvel Outil" pour commencer</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -247,7 +247,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                       onClick={() => handleTestConnection(selectedConnection.id)}
                       className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
                     >
-                      Test Connection
+                      Tester la Connexion
                     </button>
                     <button
                       onClick={() => handleDisconnect(selectedConnection.id)}
@@ -275,7 +275,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                         />
                       </svg>
                       <div className="flex-1">
-                        <div className="font-medium text-red-900">Connection Error</div>
+                        <div className="font-medium text-red-900">Erreur de Connexion</div>
                         <div className="text-sm text-red-700 mt-1">
                           {selectedConnection.error_message}
                         </div>
@@ -286,14 +286,14 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
 
                 {/* Available Tools */}
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Available Tools</h4>
+                  <h4 className="font-semibold text-gray-900 mb-3">Outils Disponibles</h4>
                   {loadingTools ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                     </div>
                   ) : tools.length === 0 ? (
                     <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500">No tools available</p>
+                      <p className="text-sm text-gray-500">Aucun outil disponible</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -312,8 +312,8 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
 
                 {selectedConnection.last_connected && (
                   <div className="mt-6 pt-6 border-t text-xs text-gray-500">
-                    Last connected:{' '}
-                    {new Date(selectedConnection.last_connected).toLocaleString()}
+                    Dernière connexion :{' '}
+                    {new Date(selectedConnection.last_connected).toLocaleString('fr-FR')}
                   </div>
                 )}
               </div>
@@ -321,7 +321,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
               <div className="flex items-center justify-center h-full text-gray-400">
                 <div className="text-center">
                   <Settings className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm">Select a connection to view details</p>
+                  <p className="text-sm">Sélectionnez une connexion pour voir les détails</p>
                 </div>
               </div>
             )}

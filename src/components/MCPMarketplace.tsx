@@ -132,9 +132,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
       setShowConnectionModal(false);
       setSelectedServer(null);
       onConnectionCreated?.();
-      alert(`Successfully connected to ${selectedServer.name}!`);
+      alert(`Connexion réussie à ${selectedServer.name} !`);
     } catch (error: any) {
-      alert('Failed to connect: ' + error.message);
+      alert('Échec de la connexion : ' + error.message);
     } finally {
       setConnecting(false);
     }
@@ -204,9 +204,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
       setApiKeyProvider('');
       setSelectedServer(null);
       onConnectionCreated?.();
-      alert(`Successfully connected to ${selectedServer.name}!`);
+      alert(`Connexion réussie à ${selectedServer.name} !`);
     } catch (error: any) {
-      alert('Failed to connect: ' + error.message);
+      alert('Échec de la connexion : ' + error.message);
     } finally {
       setConnecting(false);
     }
@@ -226,9 +226,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
       setShowTeamsConfig(false);
       setSelectedServer(null);
       onConnectionCreated?.();
-      alert(`Successfully connected to ${selectedServer.name}!`);
+      alert(`Connexion réussie à ${selectedServer.name} !`);
     } catch (error: any) {
-      alert('Failed to connect: ' + error.message);
+      alert('Échec de la connexion : ' + error.message);
     } finally {
       setConnecting(false);
     }
@@ -238,14 +238,14 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
     const connection = connections.find((conn) => conn.server_id === server.id);
     if (!connection) return;
 
-    if (!confirm(`Disconnect from ${server.name}?`)) return;
+    if (!confirm(`Déconnecter ${server.name} ?`)) return;
 
     try {
       await api.deleteMCPConnection(connection.id);
       await loadData();
       onConnectionCreated?.();
     } catch (error: any) {
-      alert('Failed to disconnect: ' + error.message);
+      alert('Échec de la déconnexion : ' + error.message);
     }
   };
 
@@ -282,9 +282,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
           <div className="p-6 border-b">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">MCP Marketplace</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Marketplace MCP</h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Browse and connect tools to enhance your AI assistant
+                  Parcourez et connectez des outils pour améliorer votre assistant IA
                 </p>
               </div>
               <button
@@ -301,7 +301,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search tools..."
+                  placeholder="Rechercher des outils..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -339,9 +339,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
             ) : filteredServers.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-5xl mb-4">🔍</div>
-                <p className="text-gray-600">No tools found</p>
+                <p className="text-gray-600">Aucun outil trouvé</p>
                 <p className="text-sm text-gray-400 mt-1">
-                  Try adjusting your search or filters
+                  Essayez d'ajuster votre recherche ou vos filtres
                 </p>
               </div>
             ) : (
@@ -363,8 +363,8 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
           <div className="p-4 border-t bg-gray-50">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <div>
-                {filteredServers.length} tool{filteredServers.length !== 1 ? 's' : ''} available •{' '}
-                {connections.length} connected
+                {filteredServers.length} outil{filteredServers.length !== 1 ? 's' : ''} disponible{filteredServers.length !== 1 ? 's' : ''} •{' '}
+                {connections.length} connecté{connections.length !== 1 ? 's' : ''}
               </div>
               <a
                 href="https://modelcontextprotocol.io"
@@ -372,7 +372,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-700"
               >
-                Learn about MCP →
+                En savoir plus sur MCP →
               </a>
             </div>
           </div>
@@ -383,7 +383,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
       {showConnectionModal && selectedServer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Connect to {selectedServer.name}?</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Se connecter à {selectedServer.name} ?</h3>
 
             <div className="mb-6">
               <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
@@ -412,9 +412,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                     </svg>
                     <div className="text-sm text-yellow-800">
                       {selectedServer.auth_type === 'api_key' ? (
-                        <>This tool requires an API key. You'll be asked to enter it in the next step.</>
+                        <>Cet outil nécessite une clé API. Il vous sera demandé de la saisir à l'étape suivante.</>
                       ) : (
-                        <>This tool requires authentication via {selectedServer.auth_type || 'OAuth2'}. You'll be redirected to authorize access.</>
+                        <>Cet outil nécessite une authentification via {selectedServer.auth_type || 'OAuth2'}. Vous serez redirigé pour autoriser l'accès.</>
                       )}
                     </div>
                   </div>
@@ -423,7 +423,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
 
               {selectedServer.setup_instructions && (
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="text-sm font-medium text-blue-900 mb-1">Setup Instructions</div>
+                  <div className="text-sm font-medium text-blue-900 mb-1">Instructions de Configuration</div>
                   <div className="text-sm text-blue-700">{selectedServer.setup_instructions}</div>
                 </div>
               )}
@@ -438,7 +438,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                 disabled={connecting}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                Cancel
+                Annuler
               </button>
               <button
                 onClick={handleConfirmConnect}
@@ -446,7 +446,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                 className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {connecting ? 'Connecting...' : 'Connect'}
+                {connecting ? 'Connexion...' : 'Connecter'}
               </button>
             </div>
           </div>
