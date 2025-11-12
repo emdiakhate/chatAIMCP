@@ -37,10 +37,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 min-w-0">
-        <div className={`flex items-center gap-2 mb-2 ${isUser ? 'justify-end' : ''}`}>
+      <div className={`flex-1 min-w-0 ${isUser ? 'flex flex-col items-end' : ''}`}>
+        <div className={`flex items-center gap-2 mb-2 ${isUser ? 'flex-row-reverse' : ''}`}>
           <span className="text-sm font-semibold text-gray-900">
-            {isUser ? 'Vous' : 'Claude'}
+            {isUser ? 'Vous' : 'Heliass'}
           </span>
           <span className="text-xs text-gray-500">
             {new Date(message.created_at).toLocaleTimeString('fr-FR', {
@@ -54,13 +54,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         <div
           className={`prose prose-sm max-w-none ${
             isUser
-              ? 'bg-white rounded-2xl px-4 py-3 inline-block ml-auto'
+              ? 'bg-[#CC785C] text-white rounded-2xl px-4 py-3 inline-block max-w-[80%]'
               : ''
           }`}
         >
           {isUser ? (
-            <p className="text-gray-900 whitespace-pre-wrap">{message.content}</p>
-          ) : (
+            <p className="text-white whitespace-pre-wrap">{message.content}</p>
+          ) : message.content ? (
             <ReactMarkdown
               components={{
                 code({ node, inline, className, children, ...props }) {
@@ -128,6 +128,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             >
               {message.content}
             </ReactMarkdown>
+          ) : (
+            <div className="flex items-center gap-2 py-2">
+              <div className="w-2 h-2 bg-[#CC785C] rounded-full animate-bounce" />
+              <div className="w-2 h-2 bg-[#CC785C] rounded-full animate-bounce delay-100" />
+              <div className="w-2 h-2 bg-[#CC785C] rounded-full animate-bounce delay-200" />
+            </div>
           )}
         </div>
 

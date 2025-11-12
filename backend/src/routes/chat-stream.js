@@ -2,6 +2,7 @@ import express from 'express';
 import db, { query } from '../config/database-sqlite-mcp.js';
 import { authenticateToken } from '../middleware/auth.js';
 import mcpClientManager from '../mcp/client-manager.js';
+import { refreshGoogleTokenIfNeeded } from '../utils/google.js';
 import { getApiKey } from './auth-apikey.js';
 import multer from 'multer';
 import {
@@ -107,13 +108,79 @@ router.post('/stream', authenticateToken, async (req, res) => {
       for (const connection of activeConnections) {
         try {
           const serverArgs = connection.args ? JSON.parse(connection.args) : [];
+          let envVars = connection.env ? JSON.parse(connection.env) : {};
+
+          // Inject OAuth tokens for OAuth-based servers (Google services)
+          if (connection.auth_type?.includes('oauth') || connection.auth_type?.includes('oauth2')) {
+            const providerMap = {
+              'gmail': 'google-gmail',
+              'gdrive': 'google-drive',
+              'gsheets': 'google-sheets',
+              'slack': 'slack',
+              'salesforce': 'salesforce',
+              'teams': 'microsoft-teams'
+            };
+
+            const integrationProvider = providerMap[connection.server_key] || connection.auth_provider || connection.server_key;
+
+            const integrationResult = query(
+              'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
+              [req.user.userId, integrationProvider]
+            );
+
+            if (integrationResult.rows.length > 0) {
+              const integration = integrationResult.rows[0];
+              
+              // Rafraîchir le token si nécessaire (pour les services Google)
+              let tokens = {
+                access_token: integration.access_token,
+                refresh_token: integration.refresh_token,
+                expires_at: integration.expires_at
+              };
+              
+              if (integrationProvider.startsWith('google-')) {
+                try {
+                  tokens = await refreshGoogleTokenIfNeeded(req.user.userId, integrationProvider);
+                } catch (refreshError) {
+                  console.warn(`[Stream] Failed to refresh token for ${connection.name}:`, refreshError.message);
+                  // Continuer avec les tokens existants même s'ils sont expirés
+                  // Les serveurs MCP peuvent essayer de les utiliser
+                }
+              }
+              
+              // Inject tokens based on server type
+              if (connection.server_key === 'gmail') {
+                envVars.GMAIL_ACCESS_TOKEN = tokens.access_token;
+                envVars.GMAIL_REFRESH_TOKEN = tokens.refresh_token;
+                envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+                envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+              } else if (connection.server_key === 'gdrive' || connection.server_key === 'gsheets') {
+                // Google Drive and Sheets use @modelcontextprotocol/server-gdrive
+                // They typically use GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN
+                envVars.GOOGLE_ACCESS_TOKEN = tokens.access_token;
+                envVars.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
+                envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+                envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+              } else {
+                // Generic OAuth tokens
+                envVars.ACCESS_TOKEN = tokens.access_token;
+                envVars.REFRESH_TOKEN = tokens.refresh_token;
+              }
+              
+              console.log(`[Stream] OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
+            } else {
+              console.warn(`[Stream] No OAuth tokens found for ${connection.name} (provider: ${integrationProvider})`);
+              console.warn(`[Stream] Please complete OAuth flow first for ${connection.name}`);
+            }
+          }
+
           const serverConfig = {
             id: connection.server_id,
             name: connection.name,
             transport_type: connection.transport_type,
             command: connection.command,
             args: serverArgs,
-            env: connection.env ? JSON.parse(connection.env) : {},
+            env: envVars,
             url: connection.url
           };
 
@@ -143,22 +210,37 @@ router.post('/stream', authenticateToken, async (req, res) => {
       // Streamer la réponse
       let fullResponse = '';
       const apiKey = process.env.OPENROUTER_API_KEY;
-      const model = process.env.OPENROUTER_MODEL || 'google/gemini-flash-1.5-8b';
+      const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
 
-      await chatCompletionStream(
-        apiKey,
-        history,
-        {
-          model,
-          temperature: 0.7,
-          max_tokens: 2048,
-          tools: availableTools.length > 0 ? availableTools : null
-        },
-        (chunk) => {
-          fullResponse += chunk;
-          sendSSE('token', { content: chunk });
-        }
-      );
+      if (!apiKey) {
+        sendSSE('error', { message: 'OpenRouter API key not configured' });
+        res.end();
+        return;
+      }
+
+      console.log('[Stream] Starting chat completion stream with model:', model);
+      
+      try {
+        await chatCompletionStream(
+          apiKey,
+          history,
+          {
+            model,
+            temperature: 0.7,
+            max_tokens: 2048,
+            tools: availableTools.length > 0 ? availableTools : null
+          },
+          (chunk) => {
+            fullResponse += chunk;
+            sendSSE('token', { content: chunk });
+          }
+        );
+      } catch (streamError) {
+        console.error('[Stream] Error during streaming:', streamError);
+        sendSSE('error', { message: streamError.message || 'Streaming error occurred' });
+        res.end();
+        return;
+      }
 
       // Enregistrer la réponse de l'assistant
       const assistantMessageResult = query(
@@ -264,7 +346,9 @@ router.post('/speech-to-text', authenticateToken, (req, res, next) => {
     }
 
     // Appeler l'API Whisper d'OpenAI
+    // Utiliser form-data avec node-fetch pour une meilleure compatibilité
     const FormData = (await import('form-data')).default;
+    const fetch = (await import('node-fetch')).default;
     const formData = new FormData();
     
     // Whisper accepte: mp3, mp4, mpeg, mpga, m4a, wav, webm
@@ -282,7 +366,10 @@ router.post('/speech-to-text', authenticateToken, (req, res, next) => {
       language: req.body.language || 'auto'
     });
     
-    formData.append('file', req.file.buffer, {
+    // Créer un Buffer à partir du buffer du fichier
+    const fileBuffer = Buffer.from(req.file.buffer);
+    
+    formData.append('file', fileBuffer, {
       filename: filename,
       contentType: req.file.mimetype || 'audio/webm'
     });

@@ -162,6 +162,138 @@ class ApiClient {
     return response.json();
   }
 
+  /**
+   * Envoie un message avec streaming SSE
+   * @param conversationId - ID de la conversation
+   * @param message - Message à envoyer
+   * @param onToken - Callback appelé pour chaque token reçu
+   * @param onComplete - Callback appelé quand le streaming est terminé
+   * @param onError - Callback appelé en cas d'erreur
+   * @param onUserMessage - Callback optionnel appelé quand le message utilisateur est enregistré (avec l'ID réel)
+   */
+  sendMessageStream(
+    conversationId: number,
+    message: string,
+    onToken: (content: string) => void,
+    onComplete: (fullContent: string, messageId: number) => void,
+    onError: (error: Error) => void,
+    onUserMessage?: (messageId: number) => void
+  ) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      onError(new Error('No authentication token found'));
+      return;
+    }
+
+    // Créer une requête POST avec le body
+    fetch(`${API_BASE_URL}/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ conversationId, message }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((error) => {
+            throw new Error(error.error || 'Failed to start stream');
+          });
+        }
+
+        // Lire le stream SSE
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullContent = '';
+        let messageId: number | null = null;
+        let currentEventType: string | null = null;
+
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+
+        const processStream = (): Promise<void> => {
+          return reader.read().then(({ done, value }) => {
+            if (done) {
+              if (messageId !== null && fullContent) {
+                onComplete(fullContent, messageId);
+              }
+              return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.trim() === '') {
+                // Ligne vide = fin d'un événement SSE, réinitialiser le type
+                currentEventType = null;
+                continue;
+              }
+
+              if (line.startsWith('event: ')) {
+                currentEventType = line.slice(7).trim();
+                continue;
+              }
+
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') {
+                  continue;
+                }
+
+                try {
+                  const parsed = JSON.parse(data);
+                  
+                  if (currentEventType === 'user_message' && parsed.id) {
+                    // Événement 'user_message' - message utilisateur enregistré
+                    if (onUserMessage) {
+                      onUserMessage(parsed.id);
+                    }
+                  } else if (currentEventType === 'token' && parsed.content) {
+                    // Événement 'token'
+                    fullContent += parsed.content;
+                    onToken(parsed.content);
+                  } else if (currentEventType === 'complete') {
+                    // Événement 'complete'
+                    if (parsed.id) {
+                      messageId = parsed.id;
+                    }
+                    if (parsed.content) {
+                      fullContent = parsed.content;
+                    }
+                  } else if (currentEventType === 'error' || parsed.message) {
+                    // Événement 'error'
+                    throw new Error(parsed.message || 'Stream error');
+                  } else if (parsed.content && !currentEventType) {
+                    // Fallback: si pas d'event type mais content présent, traiter comme token
+                    fullContent += parsed.content;
+                    onToken(parsed.content);
+                  }
+                } catch (e) {
+                  // Ignorer les erreurs de parsing pour les lignes vides
+                  if (data.trim()) {
+                    console.warn('[SSE] Failed to parse SSE data:', data, e);
+                  }
+                }
+              }
+            }
+
+            return processStream();
+          });
+        };
+
+        return processStream();
+      })
+      .catch((error) => {
+        console.error('[SSE] Stream error:', error);
+        onError(error instanceof Error ? error : new Error(String(error)));
+      });
+  }
+
   async getGoogleAuthUrl() {
     const response = await fetch(`${API_BASE_URL}/google/auth-url`, {
       headers: this.getAuthHeader(),

@@ -83,22 +83,89 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setMessages((prev) => [...prev, optimisticUserMessage]);
     setIsLoading(true);
 
-    try {
-      // TODO: Gérer l'upload des fichiers si nécessaire
-      // Pour l'instant, on envoie juste le message texte
-      const response = await api.sendMessage(conversationId, content);
-      const updatedMessages = response.messages || [];
-      setMessages(updatedMessages);
+    // Créer un message assistant temporaire pour le streaming
+    const streamingMessageId = Date.now() + 1;
+    const streamingMessage: Message = {
+      id: streamingMessageId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    };
 
-      // Recharger les infos de la conversation pour mettre à jour le titre
-      await loadMessages();
+    setMessages((prev) => [...prev, streamingMessage]);
+
+    try {
+      // Utiliser le streaming
+      api.sendMessageStream(
+        conversationId,
+        content,
+        // onToken: appelé pour chaque token reçu
+        (token: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === streamingMessageId && msg.role === 'assistant'
+                ? { ...msg, content: msg.content + token }
+                : msg
+            )
+          );
+          // Scroll automatique pendant le streaming
+          setTimeout(() => scrollToBottom(), 0);
+        },
+        // onComplete: appelé quand le streaming est terminé
+        (fullContent: string, messageId: number) => {
+          // Mettre à jour le message avec l'ID réel et le contenu complet
+          setMessages((prev) => {
+            const updated = prev.map((msg) =>
+              msg.id === streamingMessageId && msg.role === 'assistant'
+                ? { ...msg, id: messageId, content: fullContent }
+                : msg
+            );
+            
+            // Mettre à jour le titre si c'est la première réponse (sans recharger tous les messages)
+            // Compter seulement les messages utilisateur et assistant (pas les messages système)
+            const userAndAssistantMessages = updated.filter(m => m.role === 'user' || m.role === 'assistant');
+            if (userAndAssistantMessages.length <= 2) {
+              const title = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+              setConversationTitle(title);
+              // Mettre à jour le titre dans la DB sans recharger les messages
+              api.updateConversation(conversationId, title).catch(console.error);
+            }
+            
+            return updated;
+          });
+          setIsLoading(false);
+        },
+        // onError: appelé en cas d'erreur
+        (error: Error) => {
+          console.error('Failed to send message:', error);
+          // Retirer les messages optimistes en cas d'erreur
+          setMessages((prev) =>
+            prev.filter((m) => m.id !== optimisticUserMessage.id && m.id !== streamingMessageId)
+          );
+          setIsLoading(false);
+          alert('Failed to send message: ' + error.message);
+        },
+        // onUserMessage: appelé quand le message utilisateur est enregistré (optionnel)
+        (userMessageId: number) => {
+          // Mettre à jour l'ID du message utilisateur avec l'ID réel de la DB
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === optimisticUserMessage.id && msg.role === 'user'
+                ? { ...msg, id: userMessageId }
+                : msg
+            )
+          );
+        }
+      );
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Retirer le message optimiste en cas d'erreur
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMessage.id));
-      alert('Failed to send message. Please try again.');
-    } finally {
+      // Retirer les messages optimistes en cas d'erreur
+      setMessages((prev) =>
+        prev.filter((m) => m.id !== optimisticUserMessage.id && m.id !== streamingMessageId)
+      );
       setIsLoading(false);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message. Please try again.';
+      alert(errorMessage);
     }
   };
 
@@ -272,13 +339,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
-              {isLoading && (
-                <div className="flex items-center gap-2 py-4">
-                  <div className="w-2 h-2 bg-[#CC785C] rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-[#CC785C] rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-[#CC785C] rounded-full animate-bounce delay-200" />
-                </div>
-              )}
               <div ref={messagesEndRef} />
             </>
           )}

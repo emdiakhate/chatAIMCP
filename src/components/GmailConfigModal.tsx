@@ -61,16 +61,38 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
 
         if (event.data?.type === 'oauth-success') {
           window.removeEventListener('message', handleMessage);
+          // Demander à la popup de se fermer elle-même (évite les erreurs COOP)
           if (popup) {
-            popup.close();
+            try {
+              popup.postMessage({ type: 'close' }, event.origin);
+            } catch (e) {
+              // Ignorer les erreurs de postMessage
+            }
+            // Essayer de fermer, mais ignorer les erreurs COOP
+            try {
+              popup.close();
+            } catch (e) {
+              // Ignorer les erreurs COOP - la popup se fermera d'elle-même
+            }
           }
           setStep('success');
           setLoading(false);
           onConfigured?.();
         } else if (event.data?.type === 'oauth-error') {
           window.removeEventListener('message', handleMessage);
+          // Demander à la popup de se fermer elle-même (évite les erreurs COOP)
           if (popup) {
-            popup.close();
+            try {
+              popup.postMessage({ type: 'close' }, event.origin);
+            } catch (e) {
+              // Ignorer les erreurs de postMessage
+            }
+            // Essayer de fermer, mais ignorer les erreurs COOP
+            try {
+              popup.close();
+            } catch (e) {
+              // Ignorer les erreurs COOP - la popup se fermera d'elle-même
+            }
           }
           setError(event.data.message || 'OAuth authorization failed');
           setLoading(false);
@@ -104,7 +126,12 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
         clearInterval(checkPopup);
         window.removeEventListener('message', handleMessage);
         if (popup && !popup.closed) {
-          popup.close();
+          // Essayer de fermer, mais ignorer les erreurs COOP
+          try {
+            popup.close();
+          } catch (e) {
+            // Ignorer les erreurs COOP
+          }
         }
         if (loading) {
           setError('Authorization timed out. Please try again.');

@@ -52,7 +52,7 @@ router.get('/google', authenticateToken, (req, res) => {
             <h1>OAuth Configuration Error</h1>
             <p>Google OAuth credentials are not configured on the server.</p>
             <p>Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.</p>
-            <button onclick="window.close()">Close</button>
+            <button onclick="try { window.close(); } catch(e) { alert('Please close this window manually'); }">Close</button>
           </body>
         </html>
       `);
@@ -108,7 +108,7 @@ router.get('/google', authenticateToken, (req, res) => {
         <body>
           <h1>OAuth Error</h1>
           <p>Failed to start OAuth flow: ${error.message}</p>
-          <button onclick="window.close()">Close</button>
+          <button onclick="try { window.close(); } catch(e) { alert('Please close this window manually'); }">Close</button>
         </body>
       </html>
     `);
@@ -138,7 +138,23 @@ router.get('/google/callback', async (req, res) => {
                 const errorMsg = ${JSON.stringify(error)};
                 window.opener.postMessage({ type: 'oauth-error', message: errorMsg }, '*');
               }
-              setTimeout(() => window.close(), 3000);
+              // Listen for close message from parent
+              window.addEventListener('message', (event) => {
+                if (event.data?.type === 'close') {
+                  try {
+                    window.close();
+                  } catch (e) {
+                    // Ignore COOP errors - user can close manually
+                  }
+                }
+              });
+              setTimeout(() => {
+                try {
+                  window.close();
+                } catch (e) {
+                  // Ignore COOP errors - user can close manually
+                }
+              }, 3000);
             </script>
           </body>
         </html>
@@ -151,7 +167,7 @@ router.get('/google/callback', async (req, res) => {
           <body>
             <h1>Missing Authorization Code</h1>
             <p>No authorization code received from Google.</p>
-            <button onclick="window.close()">Close</button>
+            <button onclick="try { window.close(); } catch(e) { alert('Please close this window manually'); }">Close</button>
           </body>
         </html>
       `);
@@ -167,7 +183,7 @@ router.get('/google/callback', async (req, res) => {
           <body>
             <h1>Invalid State</h1>
             <p>User information missing. Please try again.</p>
-            <button onclick="window.close()">Close</button>
+            <button onclick="try { window.close(); } catch(e) { alert('Please close this window manually'); }">Close</button>
           </body>
         </html>
       `);
@@ -317,16 +333,30 @@ router.get('/google/callback', async (req, res) => {
             <h1>Authorization Successful!</h1>
             <p>${scope === 'gmail' ? 'Gmail' : 'Google'} has been connected to your account.</p>
             <p>You can now close this window and return to the application.</p>
-            <button class="close-btn" onclick="window.close()">Close Window</button>
+            <button class="close-btn" onclick="try { window.close(); } catch(e) { alert('Please close this window manually'); }">Close Window</button>
           </div>
           <script>
             // Send success message to parent window
             if (window.opener) {
               window.opener.postMessage({ type: 'oauth-success', provider: '${provider}', scope: '${scope}' }, '*');
             }
-            // Auto-close after 2 seconds
+            // Listen for close message from parent
+            window.addEventListener('message', (event) => {
+              if (event.data?.type === 'close') {
+                try {
+                  window.close();
+                } catch (e) {
+                  // Ignore COOP errors - user can close manually
+                }
+              }
+            });
+            // Auto-close after 2 seconds (with error handling)
             setTimeout(() => {
-              window.close();
+              try {
+                window.close();
+              } catch (e) {
+                // Ignore COOP errors - user can close manually
+              }
             }, 2000);
           </script>
         </body>
@@ -340,7 +370,7 @@ router.get('/google/callback', async (req, res) => {
         <body>
           <h1>OAuth Callback Error</h1>
           <p>Failed to complete authorization: ${error.message}</p>
-          <button onclick="window.close()">Close</button>
+          <button onclick="try { window.close(); } catch(e) { alert('Please close this window manually'); }">Close</button>
         </body>
       </html>
     `);
