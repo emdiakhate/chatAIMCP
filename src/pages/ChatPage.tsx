@@ -206,7 +206,7 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar
         conversations={conversations}
         currentConversation={currentConversation}
@@ -226,20 +226,20 @@ export const ChatPage: React.FC = () => {
         <div className="flex-1 overflow-y-auto px-4 py-6">
           {loading ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+              <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
             </div>
           ) : !messages || messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center max-w-md">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+                <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-2">
                   Commencer une nouvelle conversation
                 </h2>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
                   Posez-moi n'importe quelle question ! Je peux utiliser vos outils MCP connectés pour fournir des réponses contextuelles.
                 </p>
                 <button
                   onClick={() => setShowMCPPanel(true)}
-                  className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-6 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
                 >
                   Gérer Mes Outils
                 </button>

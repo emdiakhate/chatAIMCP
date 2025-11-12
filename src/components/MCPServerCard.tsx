@@ -30,7 +30,7 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
 }) => {
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      storage: 'bg-blue-100 text-blue-700',
+      storage: 'bg-orange-100 text-orange-700',
       communication: 'bg-green-100 text-green-700',
       productivity: 'bg-yellow-100 text-yellow-700',
       development: 'bg-purple-100 text-purple-700',
@@ -127,7 +127,7 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
           ) : (
             <button
               onClick={onConnect}
-              className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+              className="flex-1 px-3 py-2 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors"
             >
               Connect
             </button>

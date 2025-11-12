@@ -130,7 +130,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
             <div className="p-4">
               <button
                 onClick={onOpenMarketplace}
-                className="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors mb-4"
+                className="w-full px-4 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors mb-4"
               >
                 + Ajouter un Nouvel Outil
               </button>
@@ -153,7 +153,7 @@ export const MCPToolsPanel: React.FC<MCPToolsPanelProps> = ({
                       onClick={() => handleSelectConnection(connection)}
                       className={`w-full text-left p-3 rounded-lg border transition-colors ${
                         selectedConnection?.id === connection.id
-                          ? 'border-blue-500 bg-blue-50'
+                          ? 'border-orange-500 bg-orange-50'
                           : 'border-gray-200 hover:bg-gray-50'
                       }`}
                     >
