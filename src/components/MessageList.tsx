@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import { Bot, User, ExternalLink, Copy, Check } from 'lucide-react';
 import { Message, Source } from '../pages/ChatPage';
 import { ToolCallIndicator } from './ToolCallIndicator';
@@ -104,6 +105,7 @@ export const MessageList: React.FC<MessageListProps> = memo(({ messages }) => {
                   {message.role === 'assistant' ? (
                     <div className="prose prose-sm max-w-none">
                       <ReactMarkdown
+                        rehypePlugins={[rehypeSanitize]}
                         components={{
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                           ul: ({ children }) => <ul className="mb-2 ml-4 list-disc">{children}</ul>,
