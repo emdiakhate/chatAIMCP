@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/conversations', authenticateToken, async (req, res) => {
   try {
     const { title } = req.body;
-    const conversationTitle = title || 'New Conversation';
+    const conversationTitle = title || 'Nouvelle Conversation';
 
     const result = await query(
       'INSERT INTO conversations (user_id, title) VALUES ($1, $2) RETURNING *',

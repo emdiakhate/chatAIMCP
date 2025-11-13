@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/conversations', authenticateToken, (req, res) => {
   try {
     const { title } = req.body;
-    const conversationTitle = title || 'New Conversation';
+    const conversationTitle = title || 'Nouvelle Conversation';
 
     const result = db.prepare(
       'INSERT INTO conversations (user_id, title) VALUES (?, ?)'

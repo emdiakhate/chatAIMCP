@@ -13,7 +13,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   userEmail,
 }) => {
   const [userName, setUserName] = useState(() => {
-    return localStorage.getItem('userName') || userEmail.split('@')[0];
+    return localStorage.getItem('userName') || (userEmail ? userEmail.split('@')[0] : 'Utilisateur');
   });
   const [avatarUrl, setAvatarUrl] = useState(() => {
     return localStorage.getItem('userAvatar') || '';

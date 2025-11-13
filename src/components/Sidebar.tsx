@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, MessageSquare, Trash2, Settings, LogOut, Boxes } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, LogOut } from 'lucide-react';
 import { Conversation } from '../pages/ChatPage';
 import { UserProfileButton } from './UserProfileButton';
 
@@ -9,8 +9,6 @@ interface SidebarProps {
   onSelectConversation: (id: number) => void;
   onNewConversation: () => void;
   onDeleteConversation: (id: number) => void;
-  onShowIntegrations: () => void;
-  onShowMCPPanel?: () => void;
   onShowProfile: () => void;
   onLogout: () => void;
   userEmail: string;
@@ -22,8 +20,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
-  onShowIntegrations,
-  onShowMCPPanel,
   onShowProfile,
   onLogout,
   userEmail,
@@ -79,22 +75,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* User Profile Button */}
         <UserProfileButton userEmail={userEmail} onClick={onShowProfile} />
 
-        {onShowMCPPanel && (
-          <button
-            onClick={onShowMCPPanel}
-            className="w-full flex items-center justify-center px-4 py-2 text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition font-medium"
-          >
-            <Boxes className="w-4 h-4 mr-2" />
-            Mes Outils
-          </button>
-        )}
-        <button
-          onClick={onShowIntegrations}
-          className="w-full flex items-center justify-center px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-        >
-          <Settings className="w-4 h-4 mr-2" />
-          Intégrations
-        </button>
         <button
           onClick={onLogout}
           className="w-full flex items-center justify-center px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"

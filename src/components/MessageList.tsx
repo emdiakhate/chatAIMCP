@@ -51,14 +51,14 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
               <div
                 className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
                   message.role === 'user'
-                    ? 'bg-sky-500 ml-3'
-                    : 'bg-gray-200 mr-3'
+                    ? 'bg-orange-500 ml-3'
+                    : 'bg-gray-200 dark:bg-gray-700 mr-3'
                 }`}
               >
                 {message.role === 'user' ? (
                   <User className="w-5 h-5 text-white" />
                 ) : (
-                  <Bot className="w-5 h-5 text-gray-700" />
+                  <Bot className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                 )}
               </div>
 
@@ -66,8 +66,8 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
                 <div
                   className={`rounded-2xl px-4 py-3 ${
                     message.role === 'user'
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-white border border-gray-200 text-gray-900'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white'
                   }`}
                 >
                   {message.role === 'assistant' ? (
@@ -79,10 +79,10 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
                           ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal">{children}</ol>,
                           li: ({ children }) => <li className="mb-1">{children}</li>,
                           code: ({ children }) => (
-                            <code className="bg-gray-100 px-1 py-0.5 rounded text-sm">{children}</code>
+                            <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm">{children}</code>
                           ),
                           pre: ({ children }) => (
-                            <pre className="bg-gray-100 p-2 rounded overflow-x-auto my-2">{children}</pre>
+                            <pre className="bg-gray-100 dark:bg-gray-700 p-2 rounded overflow-x-auto my-2">{children}</pre>
                           ),
                         }}
                       >
@@ -121,7 +121,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
                 {/* Sources */}
                 {sources.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    <p className="text-xs font-medium text-gray-600">Sources:</p>
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Sources:</p>
                     <div className="space-y-2">
                       {sources.map((source, idx) => (
                         <a
@@ -129,18 +129,18 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
                           href={source.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-start p-3 bg-white border border-gray-200 rounded-lg hover:border-sky-300 hover:bg-sky-50 transition group"
+                          className="flex items-start p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition group"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-sky-600">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-orange-600 dark:group-hover:text-orange-400">
                               {source.title}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {source.type === 'drive' ? 'Google Drive' : 'Gmail'}
                               {source.from && ` • ${source.from}`}
                             </p>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-sky-500 ml-2 flex-shrink-0" />
+                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-orange-500 ml-2 flex-shrink-0" />
                         </a>
                       ))}
                     </div>

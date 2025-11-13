@@ -213,8 +213,6 @@ export const ChatPage: React.FC = () => {
         onSelectConversation={loadConversation}
         onNewConversation={createNewConversation}
         onDeleteConversation={deleteConversation}
-        onShowIntegrations={() => setShowIntegrations(true)}
-        onShowMCPPanel={() => setShowMCPPanel(true)}
         onShowProfile={() => setShowUserProfile(true)}
         onLogout={logout}
         userEmail={user?.email || ''}
