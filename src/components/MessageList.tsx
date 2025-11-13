@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bot, User, ExternalLink } from 'lucide-react';
 import { Message, Source } from '../pages/ChatPage';
@@ -9,7 +9,7 @@ interface MessageListProps {
   messages: Message[];
 }
 
-export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+export const MessageList: React.FC<MessageListProps> = memo(({ messages }) => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {messages.map((message) => {
@@ -153,4 +153,6 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
       })}
     </div>
   );
-};
+});
+
+MessageList.displayName = 'MessageList';

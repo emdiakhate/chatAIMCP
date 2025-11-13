@@ -26,6 +26,16 @@ router.post('/conversations', authenticateToken, (req, res) => {
 
 router.get('/conversations', authenticateToken, (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+
+    // Obtenir le nombre total de conversations
+    const totalResult = db.prepare(
+      'SELECT COUNT(*) as total FROM conversations WHERE user_id = ?'
+    ).get(req.user.userId);
+    const total = totalResult.total;
+
+    // Obtenir les conversations avec pagination
     const conversations = db.prepare(`
       SELECT c.*,
         (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
@@ -33,9 +43,18 @@ router.get('/conversations', authenticateToken, (req, res) => {
       FROM conversations c
       WHERE c.user_id = ?
       ORDER BY c.updated_at DESC
-    `).all(req.user.userId);
+      LIMIT ? OFFSET ?
+    `).all(req.user.userId, limit, offset);
 
-    res.json({ conversations });
+    res.json({
+      conversations,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + conversations.length < total
+      }
+    });
   } catch (error) {
     console.error('Get conversations error:', error);
     res.status(500).json({ error: 'Failed to get conversations' });

@@ -272,7 +272,10 @@ export const initDatabase = () => {
 
   // Index existants
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_integrations_user_id ON integrations(user_id);');
 
   // Index LLM usage

@@ -58,7 +58,10 @@ export const initDatabase = () => {
     );
 
     CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_integrations_user_id ON integrations(user_id);
   `);
 

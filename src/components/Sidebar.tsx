@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Plus, MessageSquare, Trash2, LogOut } from 'lucide-react';
 import { Conversation } from '../pages/ChatPage';
 import { UserProfileButton } from './UserProfileButton';
@@ -14,7 +14,7 @@ interface SidebarProps {
   userEmail: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+export const Sidebar: React.FC<SidebarProps> = memo(({
   conversations,
   currentConversation,
   onSelectConversation,
@@ -85,4 +85,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
     </div>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
