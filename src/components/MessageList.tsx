@@ -1,6 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Bot, User, ExternalLink } from 'lucide-react';
+import { Bot, User, ExternalLink, Copy, Check } from 'lucide-react';
 import { Message, Source } from '../pages/ChatPage';
 import { ToolCallIndicator } from './ToolCallIndicator';
 import { FilePreview } from './FilePreview';
@@ -8,6 +8,35 @@ import { FilePreview } from './FilePreview';
 interface MessageListProps {
   messages: Message[];
 }
+
+// Composant de bouton copier
+const CopyButton: React.FC<{ content: string }> = ({ content }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition opacity-0 group-hover:opacity-100"
+      title="Copier le message"
+    >
+      {copied ? (
+        <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+      ) : (
+        <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+      )}
+    </button>
+  );
+};
 
 export const MessageList: React.FC<MessageListProps> = memo(({ messages }) => {
   return (
@@ -64,12 +93,14 @@ export const MessageList: React.FC<MessageListProps> = memo(({ messages }) => {
 
               <div className="flex-1">
                 <div
-                  className={`rounded-2xl px-4 py-3 ${
+                  className={`relative group rounded-2xl px-4 py-3 ${
                     message.role === 'user'
                       ? 'bg-orange-500 text-white'
                       : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white'
                   }`}
                 >
+                  {/* Bouton copier pour messages de l'assistant */}
+                  {message.role === 'assistant' && <CopyButton content={message.content} />}
                   {message.role === 'assistant' ? (
                     <div className="prose prose-sm max-w-none">
                       <ReactMarkdown
