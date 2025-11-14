@@ -451,7 +451,52 @@ router.post('/tools/execute', authenticateToken, async (req, res) => {
       });
     }
 
-    const connection = parseJsonFields(connResult.rows[0], ['args', 'env', 'credentials']);
+    const connection = parseJsonFields(connResult.rows[0], ['args', 'env', 'credentials', 'auth_type']);
+
+    // Rafraîchir les tokens OAuth si nécessaire
+    let credentials = connection.credentials || {};
+    if (connection.auth_type?.includes('oauth')) {
+      const providerMap = {
+        'gmail': 'google-gmail',
+        'gdrive': 'google-drive',
+        'gsheets': 'google-sheets',
+        'slack': 'slack',
+        'salesforce': 'salesforce',
+        'teams': 'microsoft-teams'
+      };
+
+      const integrationProvider = providerMap[connection.server_key] || connection.auth_provider || connection.server_key;
+
+      try {
+        // Rafraîchir le token pour les providers Google
+        if (integrationProvider.startsWith('google-')) {
+          const tokenData = await refreshGoogleTokenIfNeeded(req.user.userId, integrationProvider);
+
+          credentials = {
+            ...credentials,
+            accessToken: tokenData.access_token,
+            refreshToken: tokenData.refresh_token,
+            expiresAt: tokenData.expires_at
+          };
+
+          // Mettre à jour les credentials dans la base de données
+          query(`
+            UPDATE user_mcp_connections
+            SET credentials = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `, [JSON.stringify(credentials), connection_id]);
+
+          console.log(`[Tool Execute] Token refreshed for ${connection.name}`);
+        }
+      } catch (error) {
+        console.error(`[Tool Execute] Error refreshing token:`, error);
+        return res.status(401).json({
+          success: false,
+          error: 'OAuth token expired or invalid. Please reconnect the tool.',
+          details: error.message
+        });
+      }
+    }
 
     const serverConfig = {
       id: connection.server_id,
@@ -461,7 +506,7 @@ router.post('/tools/execute', authenticateToken, async (req, res) => {
       args: connection.args || [],
       env: {
         ...(connection.env || {}),
-        ...(connection.credentials || {})
+        ...credentials
       },
       url: connection.url
     };

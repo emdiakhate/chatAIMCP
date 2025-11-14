@@ -12,6 +12,7 @@ import {
   prepareToolResponseMessages
 } from '../utils/openrouter.js';
 import { llmRouter, PROVIDERS } from '../services/llm-router.js';
+import { refreshGoogleTokenIfNeeded } from '../utils/google.js';
 
 const router = express.Router();
 
@@ -140,37 +141,56 @@ router.post('/chat', authenticateToken, async (req, res) => {
 
           const integrationProvider = providerMap[connection.server_key] || connection.auth_provider || connection.server_key;
 
-          const integrationResult = query(
-            'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
-            [req.user.userId, integrationProvider]
-          );
+          try {
+            // Rafraîchir le token pour les providers Google
+            let tokenData;
+            if (integrationProvider.startsWith('google-')) {
+              tokenData = await refreshGoogleTokenIfNeeded(req.user.userId, integrationProvider);
+              console.log(`[Chat MCP] Token refreshed for ${connection.name} (provider: ${integrationProvider})`);
+            } else {
+              // Pour les autres providers, utiliser les tokens tels quels
+              const integrationResult = query(
+                'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
+                [req.user.userId, integrationProvider]
+              );
 
-          if (integrationResult.rows.length > 0) {
-            const integration = integrationResult.rows[0];
-            
+              if (integrationResult.rows.length === 0) {
+                throw new Error(`No OAuth tokens found for ${integrationProvider}`);
+              }
+
+              const integration = integrationResult.rows[0];
+              tokenData = {
+                access_token: integration.access_token,
+                refresh_token: integration.refresh_token,
+                expires_at: integration.expires_at
+              };
+            }
+
             // Inject tokens based on server type
             if (connection.server_key === 'gmail') {
-              envVars.GMAIL_ACCESS_TOKEN = integration.access_token;
-              envVars.GMAIL_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GMAIL_ACCESS_TOKEN = tokenData.access_token;
+              envVars.GMAIL_REFRESH_TOKEN = tokenData.refresh_token;
               envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
               envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
             } else if (connection.server_key === 'gdrive' || connection.server_key === 'gsheets') {
               // Google Drive and Sheets use @modelcontextprotocol/server-gdrive
               // They typically use GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN
-              envVars.GOOGLE_ACCESS_TOKEN = integration.access_token;
-              envVars.GOOGLE_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GOOGLE_ACCESS_TOKEN = tokenData.access_token;
+              envVars.GOOGLE_REFRESH_TOKEN = tokenData.refresh_token;
               envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
               envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
             } else {
               // Generic OAuth tokens
-              envVars.ACCESS_TOKEN = integration.access_token;
-              envVars.REFRESH_TOKEN = integration.refresh_token;
+              envVars.ACCESS_TOKEN = tokenData.access_token;
+              envVars.REFRESH_TOKEN = tokenData.refresh_token;
             }
-            
-            console.log(`[Chat MCP] OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
-          } else {
-            console.warn(`[Chat MCP] No OAuth tokens found for ${connection.name} (provider: ${integrationProvider})`);
-            console.warn(`[Chat MCP] Please complete OAuth flow first for ${connection.name}`);
+
+            console.log(`[Chat MCP] Fresh OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
+          } catch (error) {
+            console.error(`[Chat MCP] Error refreshing OAuth token for ${connection.name}:`, error.message);
+            console.warn(`[Chat MCP] Skipping ${connection.name} due to OAuth error. User may need to re-authenticate.`);
+            // Skip this connection if OAuth fails
+            continue;
           }
         }
 
@@ -616,37 +636,56 @@ router.get('/chat/available-tools', authenticateToken, async (req, res) => {
 
           const integrationProvider = providerMap[connection.server_key] || connection.auth_provider || connection.server_key;
 
-          const integrationResult = query(
-            'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
-            [req.user.userId, integrationProvider]
-          );
+          try {
+            // Rafraîchir le token pour les providers Google
+            let tokenData;
+            if (integrationProvider.startsWith('google-')) {
+              tokenData = await refreshGoogleTokenIfNeeded(req.user.userId, integrationProvider);
+              console.log(`[Chat MCP] Token refreshed for ${connection.name} (provider: ${integrationProvider})`);
+            } else {
+              // Pour les autres providers, utiliser les tokens tels quels
+              const integrationResult = query(
+                'SELECT access_token, refresh_token, expires_at FROM integrations WHERE user_id = ? AND provider = ?',
+                [req.user.userId, integrationProvider]
+              );
 
-          if (integrationResult.rows.length > 0) {
-            const integration = integrationResult.rows[0];
-            
+              if (integrationResult.rows.length === 0) {
+                throw new Error(`No OAuth tokens found for ${integrationProvider}`);
+              }
+
+              const integration = integrationResult.rows[0];
+              tokenData = {
+                access_token: integration.access_token,
+                refresh_token: integration.refresh_token,
+                expires_at: integration.expires_at
+              };
+            }
+
             // Inject tokens based on server type
             if (connection.server_key === 'gmail') {
-              envVars.GMAIL_ACCESS_TOKEN = integration.access_token;
-              envVars.GMAIL_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GMAIL_ACCESS_TOKEN = tokenData.access_token;
+              envVars.GMAIL_REFRESH_TOKEN = tokenData.refresh_token;
               envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
               envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
             } else if (connection.server_key === 'gdrive' || connection.server_key === 'gsheets') {
               // Google Drive and Sheets use @modelcontextprotocol/server-gdrive
               // They typically use GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN
-              envVars.GOOGLE_ACCESS_TOKEN = integration.access_token;
-              envVars.GOOGLE_REFRESH_TOKEN = integration.refresh_token;
+              envVars.GOOGLE_ACCESS_TOKEN = tokenData.access_token;
+              envVars.GOOGLE_REFRESH_TOKEN = tokenData.refresh_token;
               envVars.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
               envVars.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
             } else {
               // Generic OAuth tokens
-              envVars.ACCESS_TOKEN = integration.access_token;
-              envVars.REFRESH_TOKEN = integration.refresh_token;
+              envVars.ACCESS_TOKEN = tokenData.access_token;
+              envVars.REFRESH_TOKEN = tokenData.refresh_token;
             }
-            
-            console.log(`[Chat MCP] OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
-          } else {
-            console.warn(`[Chat MCP] No OAuth tokens found for ${connection.name} (provider: ${integrationProvider})`);
-            console.warn(`[Chat MCP] Please complete OAuth flow first for ${connection.name}`);
+
+            console.log(`[Chat MCP] Fresh OAuth tokens injected for ${connection.name} (provider: ${integrationProvider})`);
+          } catch (error) {
+            console.error(`[Chat MCP] Error refreshing OAuth token for ${connection.name}:`, error.message);
+            console.warn(`[Chat MCP] Skipping ${connection.name} due to OAuth error. User may need to re-authenticate.`);
+            // Skip this connection if OAuth fails
+            continue;
           }
         }
 
