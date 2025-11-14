@@ -31,10 +31,10 @@ const consoleFormat = winston.format.combine(
 
 // Configuration des transports
 const transports = [
-  // Console (toujours actif)
+  // Console (niveau warn en prod pour performance)
   new winston.transports.Console({
     format: consoleFormat,
-    level: process.env.LOG_LEVEL || 'info',
+    level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'warn' : 'info'),
   }),
 ];
 
@@ -93,16 +93,16 @@ export const logRequest = (req, res, next) => {
       logData.userId = req.user.userId;
     }
 
-    // Logger en fonction du status code
+    // Logger UNIQUEMENT les erreurs et requêtes lentes (optimisation performance)
     if (res.statusCode >= 500) {
       logger.error('Server error', logData);
     } else if (res.statusCode >= 400) {
       logger.warn('Client error', logData);
-    } else if (duration > 5000) {
+    } else if (duration > 3000) {
+      // Abaissé à 3s pour détecter plus rapidement les problèmes
       logger.warn('Slow request', logData);
-    } else {
-      logger.info('HTTP request', logData);
     }
+    // Ne plus logger toutes les requêtes réussies pour optimiser les performances
   });
 
   next();
