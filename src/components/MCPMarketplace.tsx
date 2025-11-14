@@ -304,7 +304,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                   placeholder="Rechercher des outils..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -317,7 +317,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                   onClick={() => setSelectedCategory(category.key)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     selectedCategory === category.key
-                      ? 'bg-orange-600 text-white'
+                      ? 'bg-sky-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -370,7 +370,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
                 href="https://modelcontextprotocol.io"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-orange-600 hover:text-orange-700"
+                className="text-sky-600 hover:text-sky-700"
               >
                 En savoir plus sur MCP →
               </a>
@@ -422,9 +422,9 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
               )}
 
               {selectedServer.setup_instructions && (
-                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-lg">
                   <div className="text-sm font-medium text-orange-900 mb-1">Instructions de Configuration</div>
-                  <div className="text-sm text-orange-700">{selectedServer.setup_instructions}</div>
+                  <div className="text-sm text-sky-700">{selectedServer.setup_instructions}</div>
                 </div>
               )}
             </div>
@@ -443,7 +443,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({
               <button
                 onClick={handleConfirmConnect}
                 disabled={connecting}
-                className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-sky-600 text-white font-medium rounded-md hover:bg-sky-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {connecting ? 'Connexion...' : 'Connecter'}

@@ -15,7 +15,7 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
       </div>
     );
   }
@@ -29,7 +29,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
       </div>
     );
   }
@@ -40,7 +40,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Composant de chargement pour Suspense
 const PageLoader: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+    <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
   </div>
 );
 

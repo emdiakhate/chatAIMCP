@@ -94,7 +94,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               )}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 p-2 bg-orange-600 text-white rounded-full shadow-lg hover:bg-orange-700 transition-colors"
+                className="absolute bottom-0 right-0 p-2 bg-sky-600 text-white rounded-full shadow-lg hover:bg-sky-700 transition-colors"
                 title="Changer la photo"
               >
                 <Camera className="w-4 h-4" />
@@ -128,7 +128,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                   type="text"
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   placeholder="Votre nom"
                   autoFocus
                 />
@@ -171,8 +171,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           </div>
 
           {/* Info */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <p className="text-sm text-orange-800">
+          <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
+            <p className="text-sm text-sky-800">
               <span className="font-medium">Astuce :</span> Votre photo et votre nom sont stockés localement dans votre navigateur.
             </p>
           </div>
@@ -182,7 +182,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+            className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors"
           >
             Fermer
           </button>

@@ -132,8 +132,8 @@ export const IntegrationsModal: React.FC<IntegrationsModalProps> = ({ onClose })
                 )}
               </div>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <p className="text-sm text-orange-800">
+              <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
+                <p className="text-sm text-sky-800">
                   <strong>Privacy:</strong> We only request read-only access. Your data is never stored on our servers and is only used to provide contextual responses.
                 </p>
               </div>

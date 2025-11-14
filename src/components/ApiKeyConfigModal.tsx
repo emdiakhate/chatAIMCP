@@ -149,7 +149,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                   <div className="grid gap-3">
                     {features.map((feature, idx) => (
                       <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                        <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div>
                           <p className="font-medium text-gray-900">{feature.title}</p>
                           <p className="text-sm text-gray-600">{feature.description}</p>
@@ -231,7 +231,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
           {step === 'success' && (
             <div className="text-center py-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {providerName} Connected!

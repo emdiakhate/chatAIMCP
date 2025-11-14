@@ -47,7 +47,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
         return {
           name: 'Google Sheets',
           icon: '📊',
-          color: 'text-green-600',
+          color: 'text-emerald-600',
           bgColor: 'bg-green-100',
           description: 'Connectez votre compte Google Sheets',
           features: [
@@ -175,42 +175,11 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
 
       window.addEventListener('message', handleMessage);
 
-      // Fallback: check if popup is closed (for browsers that don't support postMessage)
-      let currentStep = 'oauth';
-      const checkPopup = setInterval(() => {
-        try {
-        if (popup?.closed) {
-          clearInterval(checkPopup);
-            window.removeEventListener('message', handleMessage);
-            // Give a moment for postMessage to arrive
-          setTimeout(() => {
-              // If still in oauth step, assume it was closed manually
-              setError('Authorization was cancelled or the popup was closed.');
-            setLoading(false);
-            }, 1000);
-          }
-        } catch (e) {
-          // Ignore COOP errors when checking window.closed
-          // postMessage will handle the communication
-        }
-      }, 500);
-
-      // Cleanup after 5 minutes
-      setTimeout(() => {
-        clearInterval(checkPopup);
+      // Timeout de sécurité: nettoyer après 5 minutes
+      const timeout = setTimeout(() => {
         window.removeEventListener('message', handleMessage);
-        if (popup && !popup.closed) {
-          // Essayer de fermer, mais ignorer les erreurs COOP
-          try {
-            popup.close();
-          } catch (e) {
-            // Ignorer les erreurs COOP
-          }
-        }
-        if (loading) {
-          setError('Authorization timed out. Please try again.');
-          setLoading(false);
-        }
+        setError('La connexion a expiré. Veuillez réessayer.');
+        setLoading(false);
       }, 5 * 60 * 1000);
     } catch (err: any) {
       setError(err.message || 'Failed to start OAuth flow');
@@ -249,10 +218,10 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
         <div className="p-6">
           {step === 'intro' && (
             <div className="space-y-6">
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
                 <div className="flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-orange-800">
+                  <AlertCircle className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-sky-800">
                     <p className="font-medium mb-1">Configuration OAuth requise</p>
                     <p>
                       Pour utiliser {serviceConfig.name}, vous devez autoriser ChatAI à accéder à votre compte.
@@ -267,7 +236,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                 <div className="grid gap-3">
                   {serviceConfig.features.map((feature, index) => (
                     <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="font-medium text-gray-900">{feature.title}</p>
                         <p className="text-sm text-gray-600">{feature.description}</p>
@@ -317,7 +286,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
           {step === 'success' && (
             <div className="text-center py-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {serviceConfig.name} connecté avec succès !
@@ -344,7 +313,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
               href="https://developers.google.com/gmail/api/guides"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-orange-600 hover:text-orange-700"
+              className="flex items-center gap-1 text-sky-600 hover:text-sky-700"
             >
               Gmail API Docs
               <ExternalLink className="w-3 h-3" />
@@ -365,7 +334,7 @@ export const GmailConfigModal: React.FC<GmailConfigModalProps> = ({
                     handleOAuthStart();
                   }}
                   disabled={loading}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Connexion...' : `Connecter ${serviceConfig.name}`}
                 </button>

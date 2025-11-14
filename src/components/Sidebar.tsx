@@ -29,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
       <div className="p-4">
         <button
           onClick={onNewConversation}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-lg transition flex items-center justify-center"
+          className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium py-3 px-4 rounded-lg transition flex items-center justify-center"
         >
           <Plus className="w-5 h-5 mr-2" />
           Nouveau Chat
@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
               key={conversation.id}
               className={`group relative flex items-center p-3 rounded-lg cursor-pointer transition ${
                 currentConversation?.id === conversation.id
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                  ? 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400'
                   : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
               onClick={() => onSelectConversation(conversation.id)}

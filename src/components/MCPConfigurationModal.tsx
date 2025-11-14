@@ -226,7 +226,7 @@ export const MCPConfigurationModal: React.FC<MCPConfigurationModalProps> = ({
               {/* Connection Status */}
               {connection ? (
                 <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="font-medium text-green-900">Connected</p>
                     <p className="text-sm text-green-700 mt-1">

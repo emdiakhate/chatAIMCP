@@ -224,7 +224,7 @@ export const ChatPage: React.FC = () => {
         <div className="flex-1 overflow-y-auto px-4 py-6">
           {loading ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+              <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
             </div>
           ) : !messages || messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
@@ -237,7 +237,7 @@ export const ChatPage: React.FC = () => {
                 </p>
                 <button
                   onClick={() => setShowMCPPanel(true)}
-                  className="px-6 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                  className="px-6 py-3 bg-sky-600 text-white font-medium rounded-lg hover:bg-sky-700 transition-colors"
                 >
                   Gérer Mes Outils
                 </button>

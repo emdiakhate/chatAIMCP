@@ -255,7 +255,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 className="p-1 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
                 title="Save"
               >
-                <Check className="w-4 h-4 text-green-600" />
+                <Check className="w-4 h-4 text-emerald-600" />
               </button>
               <button
                 onClick={handleCancelEditTitle}

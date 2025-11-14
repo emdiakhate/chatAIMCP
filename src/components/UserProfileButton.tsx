@@ -31,10 +31,10 @@ export const UserProfileButton: React.FC<UserProfileButtonProps> = ({
         <img
           src={avatarUrl}
           alt={userName}
-          className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600 group-hover:border-orange-500 transition"
+          className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600 group-hover:border-sky-500 transition"
         />
       ) : (
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white text-sm font-bold border-2 border-gray-300 dark:border-gray-600 group-hover:border-orange-500 transition">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-sm font-bold border-2 border-gray-300 dark:border-gray-600 group-hover:border-sky-500 transition">
           {getInitials(userName)}
         </div>
       )}
@@ -42,7 +42,7 @@ export const UserProfileButton: React.FC<UserProfileButtonProps> = ({
         <div className="text-sm font-medium text-gray-900 dark:text-white">{userName}</div>
         <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{userEmail || 'No email'}</div>
       </div>
-      <User className="w-4 h-4 text-gray-400 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition" />
+      <User className="w-4 h-4 text-gray-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition" />
     </button>
   );
 };

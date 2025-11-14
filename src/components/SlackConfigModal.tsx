@@ -100,7 +100,7 @@ export const SlackConfigModal: React.FC<SlackConfigModalProps> = ({
                 <h3 className="font-semibold text-gray-900">What you'll be able to do:</h3>
                 <div className="grid gap-3">
                   <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Send messages</p>
                       <p className="text-sm text-gray-600">
@@ -109,7 +109,7 @@ export const SlackConfigModal: React.FC<SlackConfigModalProps> = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Read conversations</p>
                       <p className="text-sm text-gray-600">
@@ -118,7 +118,7 @@ export const SlackConfigModal: React.FC<SlackConfigModalProps> = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Manage channels</p>
                       <p className="text-sm text-gray-600">
@@ -127,7 +127,7 @@ export const SlackConfigModal: React.FC<SlackConfigModalProps> = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">File operations</p>
                       <p className="text-sm text-gray-600">
@@ -179,7 +179,7 @@ export const SlackConfigModal: React.FC<SlackConfigModalProps> = ({
           {step === 'success' && (
             <div className="text-center py-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Slack Connected Successfully!

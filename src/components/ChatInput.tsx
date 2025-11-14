@@ -43,7 +43,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled })
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Posez-moi une question..."
-              className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none transition"
+              className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none transition"
               rows={1}
               disabled={disabled}
             />
@@ -51,7 +51,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled })
           <button
             type="submit"
             disabled={!message.trim() || disabled}
-            className="bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="bg-sky-500 hover:bg-sky-600 text-white p-3 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {disabled ? (
               <Loader2 className="w-5 h-5 animate-spin" />

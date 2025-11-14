@@ -115,7 +115,7 @@ export const LLMSettings: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Groq</span>
                       {configured.groq ? (
-                        <span className="flex items-center gap-1 text-xs text-green-600">
+                        <span className="flex items-center gap-1 text-xs text-emerald-600">
                           <Check className="w-3 h-3" />
                           Configuré
                         </span>
@@ -126,7 +126,7 @@ export const LLMSettings: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">OpenRouter</span>
                       {configured.openrouter ? (
-                        <span className="flex items-center gap-1 text-xs text-green-600">
+                        <span className="flex items-center gap-1 text-xs text-emerald-600">
                           <Check className="w-3 h-3" />
                           Configuré
                         </span>

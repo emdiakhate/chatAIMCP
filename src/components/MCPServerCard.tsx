@@ -30,7 +30,7 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
 }) => {
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      storage: 'bg-orange-100 text-orange-700',
+      storage: 'bg-sky-100 text-sky-700',
       communication: 'bg-green-100 text-green-700',
       productivity: 'bg-yellow-100 text-yellow-700',
       development: 'bg-purple-100 text-purple-700',
@@ -45,7 +45,7 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
   const getStatusBadge = (status?: string) => {
     const badges: Record<string, { label: string; color: string }> = {
       available: { label: 'Available', color: 'bg-green-100 text-green-700 border border-green-200' },
-      beta: { label: 'Beta', color: 'bg-orange-100 text-orange-700 border border-orange-200' },
+      beta: { label: 'Beta', color: 'bg-sky-100 text-sky-700 border border-sky-200' },
       coming_soon: { label: 'Coming Soon', color: 'bg-gray-100 text-gray-600 border border-gray-200' },
     };
     return badges[status || 'available'];
@@ -127,7 +127,7 @@ export const MCPServerCard: React.FC<MCPServerCardProps> = ({
           ) : (
             <button
               onClick={onConnect}
-              className="flex-1 px-3 py-2 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors"
+              className="flex-1 px-3 py-2 bg-sky-600 text-white text-sm font-medium rounded-md hover:bg-sky-700 transition-colors"
             >
               Connect
             </button>
