@@ -11,8 +11,30 @@ import {
   extractToolCallsFromResponse,
   prepareToolResponseMessages
 } from '../utils/openrouter.js';
+import { llmRouter, PROVIDERS } from '../services/llm-router.js';
 
 const router = express.Router();
+
+// Simple in-memory cache pour réponses rapides
+const responseCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 100;
+
+// Fonction pour générer une clé de cache
+const getCacheKey = (message, userId) => {
+  // Hash simple basé sur message + userId
+  return `${userId}:${message.toLowerCase().trim().substring(0, 100)}`;
+};
+
+// Nettoyer le cache périodiquement
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of responseCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      responseCache.delete(key);
+    }
+  }
+}, 60000); // Nettoyer toutes les minutes
 
 // Configuration multer pour upload de fichiers
 const upload = multer({
@@ -81,11 +103,44 @@ router.post('/stream', authenticateToken, async (req, res) => {
 
       sendSSE('user_message', { id: userMessageId, content: message });
 
-      // Récupérer l'historique de la conversation
+      // Vérifier le cache pour réponses rapides (messages simples sans outils)
+      const cacheKey = getCacheKey(message, req.user.userId);
+      const cachedResponse = responseCache.get(cacheKey);
+
+      if (cachedResponse && !message.toLowerCase().includes('fichier') &&
+          !message.toLowerCase().includes('email') && !message.toLowerCase().includes('drive')) {
+        // Réponse du cache - ultra rapide
+        console.log('[Stream] Cache hit for:', message.substring(0, 30));
+
+        // Simuler un streaming rapide du cache
+        const words = cachedResponse.content.split(' ');
+        for (let i = 0; i < words.length; i += 3) {
+          const chunk = words.slice(i, i + 3).join(' ') + ' ';
+          sendSSE('token', { content: chunk });
+        }
+
+        // Enregistrer la réponse
+        const assistantMessageResult = query(
+          'INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?) RETURNING id',
+          [conversationId, 'assistant', cachedResponse.content]
+        );
+
+        sendSSE('complete', {
+          id: assistantMessageResult.lastInsertRowid,
+          content: cachedResponse.content,
+          cached: true
+        });
+
+        res.end();
+        return;
+      }
+
+      // Récupérer l'historique de la conversation (limité pour performance)
       const messagesResult = query(
-        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 11',
         [conversationId]
       );
+      messagesResult.rows.reverse();
 
       // Convertir au format OpenAI
       const history = messagesResult.rows.map((msg) => ({
@@ -207,39 +262,97 @@ router.post('/stream', authenticateToken, async (req, res) => {
 
       sendSSE('tools_loaded', { count: availableTools.length });
 
-      // Streamer la réponse
+      // Streamer la réponse avec Groq (ultra-rapide)
       let fullResponse = '';
-      const apiKey = process.env.OPENROUTER_API_KEY;
-      const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
 
-      if (!apiKey) {
-        sendSSE('error', { message: 'OpenRouter API key not configured' });
+      // Utiliser Groq pour le streaming (8x plus rapide qu'OpenRouter)
+      const groqApiKey = process.env.GROQ_API_KEY;
+
+      if (!groqApiKey) {
+        sendSSE('error', { message: 'Groq API key not configured' });
         res.end();
         return;
       }
 
-      console.log('[Stream] Starting chat completion stream with model:', model);
-      
+      // System prompt minimaliste
+      const systemMessage = {
+        role: 'system',
+        content: availableTools.length > 0
+          ? `You are a helpful AI assistant with tools: ${availableTools.map(t => t.function.name).join(', ')}. Use tools when helpful. Be concise.`
+          : `You are a helpful AI assistant. Be concise and direct.`
+      };
+
+      const messages = [systemMessage, ...history];
+
+      console.log('[Stream] Starting Groq stream with llama-3.1-8b');
+
       try {
-        await chatCompletionStream(
-          apiKey,
-          history,
-          {
-            model,
-            temperature: 0.7,
-            max_tokens: 2048,
-            tools: availableTools.length > 0 ? availableTools : null
+        // Appel direct à Groq API pour streaming
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${groqApiKey}`,
           },
-          (chunk) => {
-            fullResponse += chunk;
-            sendSSE('token', { content: chunk });
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages,
+            temperature: 0.7,
+            max_tokens: 1000,
+            stream: true,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(`Groq API error: ${error.error?.message || response.statusText}`);
+        }
+
+        // Traiter le stream SSE de Groq
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  fullResponse += content;
+                  sendSSE('token', { content });
+                }
+              } catch (e) {
+                // Ignorer les lignes mal formées
+              }
+            }
           }
-        );
+        }
       } catch (streamError) {
         console.error('[Stream] Error during streaming:', streamError);
         sendSSE('error', { message: streamError.message || 'Streaming error occurred' });
         res.end();
         return;
+      }
+
+      // Mettre en cache la réponse pour des requêtes similaires futures
+      if (fullResponse && responseCache.size < MAX_CACHE_SIZE) {
+        const cacheKey = getCacheKey(message, req.user.userId);
+        responseCache.set(cacheKey, {
+          content: fullResponse,
+          timestamp: Date.now()
+        });
       }
 
       // Enregistrer la réponse de l'assistant
