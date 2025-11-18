@@ -28,9 +28,9 @@ export const PROVIDERS = {
  */
 const DEFAULT_CONFIG = {
   provider: PROVIDERS.GROQ,
-  model: 'llama-3.1-70b',
+  model: 'llama-3.1-8b', // Changed from 70b for faster responses
   temperature: 0.7,
-  maxTokens: 2000,
+  maxTokens: 1000, // Reduced from 2000 for faster generation
 };
 
 /**
@@ -79,11 +79,11 @@ const TASK_ROUTING = {
     description: 'Research, large context analysis'
   },
 
-  // Default → Balanced performance/cost
+  // Default → Speed optimized
   default: {
     provider: PROVIDERS.GROQ,
-    model: 'llama-3.1-70b',
-    description: 'General purpose tasks'
+    model: 'llama-3.1-8b',
+    description: 'General purpose tasks - fast responses'
   }
 };
 
@@ -146,7 +146,7 @@ export class LLMRouter {
       if (enableFallback) {
         console.log('[LLM Router] Attempting fallback...');
         const fallbackProvider = provider === PROVIDERS.GROQ ? PROVIDERS.OPENROUTER : PROVIDERS.GROQ;
-        const fallbackModel = fallbackProvider === PROVIDERS.GROQ ? 'llama-3.1-70b' : 'gemini-flash';
+        const fallbackModel = fallbackProvider === PROVIDERS.GROQ ? 'llama-3.1-8b' : 'gemini-flash';
 
         return this.call({
           messages,

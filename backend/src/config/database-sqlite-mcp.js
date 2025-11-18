@@ -28,7 +28,7 @@ export const initDatabase = () => {
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       llm_provider TEXT DEFAULT 'groq',
-      llm_model TEXT DEFAULT 'llama-3.1-70b',
+      llm_model TEXT DEFAULT 'llama-3.1-8b',
       llm_settings TEXT DEFAULT '{}',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -833,7 +833,7 @@ export const runMigrations = () => {
       console.log('[Database] Adding LLM preference columns to users table...');
       db.exec(`
         ALTER TABLE users ADD COLUMN llm_provider TEXT DEFAULT 'groq';
-        ALTER TABLE users ADD COLUMN llm_model TEXT DEFAULT 'llama-3.1-70b';
+        ALTER TABLE users ADD COLUMN llm_model TEXT DEFAULT 'llama-3.1-8b';
         ALTER TABLE users ADD COLUMN llm_settings TEXT DEFAULT '{}';
       `);
       console.log('[Database] ✅ LLM preference columns added');

@@ -251,34 +251,20 @@ router.post('/chat', authenticateToken, async (req, res) => {
     // Fallback to OpenRouter if needed (for compatibility)
     const useOpenRouter = !llmRouter.groqApiKey && !llmRouter.openrouterApiKey;
 
-    // Récupérer l'historique de la conversation
+    // Récupérer l'historique de la conversation (limité aux 10 derniers messages pour performance)
     const messagesResult = query(
-      'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
+      'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 11',
       [conversationId]
     );
+    // Réordonner en ASC pour l'envoi au LLM
+    messagesResult.rows.reverse();
 
-    // System prompt pour guider le modèle
+    // System prompt simplifié pour performance
     const systemPrompt = {
       role: 'system',
-      content: `You are an intelligent AI assistant with access to powerful tools via the Model Context Protocol (MCP).
-
-Available tools: ${availableTools.length > 0 ? availableTools.map(t => t.function.name).join(', ') : 'none'}
-
-Guidelines:
-- ACTIVELY use the available tools when they can help answer the user's question
-- Always prefer using tools over making assumptions
-- For filesystem operations, use the filesystem tools
-- For email-related queries, use the gmail tools
-- For document storage, use the gdrive tools
-- For code-related tasks, use the github tools
-- For accessing stored memories or knowledge, use the memory tools (read_graph, search_nodes, open_nodes)
-- When you need to remember information for later, use create_entities and add_observations
-- Explain what you're doing when using tools
-- If a tool call fails, explain the error clearly and suggest alternatives
-- Provide clear, concise, and helpful responses
-- When multiple tools are needed, call them in sequence to build up information
-
-Remember: You are empowered to take action using these tools. Don't just describe what could be done - actually use the tools to accomplish tasks for the user.`
+      content: availableTools.length > 0
+        ? `You are a helpful AI assistant with tools: ${availableTools.map(t => t.function.name).join(', ')}. Use tools when helpful. Be concise.`
+        : `You are a helpful AI assistant. Be concise and direct.`
     };
 
     // Convertir l'historique au format OpenAI (exclure le dernier message déjà ajouté)
@@ -326,7 +312,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
         {
           model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
             temperature: llmSettings.temperature || 0.7,
-            max_tokens: llmSettings.maxTokens || 4096,
+            max_tokens: llmSettings.maxTokens || 1000,
           tools: availableTools.length > 0 ? availableTools : undefined,
           tool_choice: availableTools.length > 0 ? 'auto' : undefined
         }
@@ -338,7 +324,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
           provider: llmProvider,
           model: llmModel,
           temperature: llmSettings.temperature || 0.7,
-          maxTokens: llmSettings.maxTokens || 4096,
+          maxTokens: llmSettings.maxTokens || 1000,
           enableFallback: llmSettings.enableFallback !== false
         });
 
@@ -466,7 +452,7 @@ Remember: You are empowered to take action using these tools. Don't just describ
         {
           model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
           temperature: 0.7,
-          max_tokens: 4096
+          max_tokens: 1000
         }
       );
 
